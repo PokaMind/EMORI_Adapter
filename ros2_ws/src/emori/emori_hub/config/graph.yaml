@@ -1,0 +1,20 @@
+# Parameters of the graph nodes the hub hosts, given to rclpy at start with --params-file.
+#
+# The hub reads this only with EMORI_HUB_GRAPH=1. These are the values v2.launch.py gives the
+# same four nodes, except `source`. What moves the robot is not here and must not be: the
+# skill facade reads EMORI_ROS_MOTION_OWNER and EMORI_SKILL_TRANSPORT from the environment,
+# so that the one answer to who may move the robot stays in the settings that say so.
+emori_adapter:
+  ros__parameters:
+    # Fed in-process through the hub's fan-out: no socket, no reader, no timer.
+    source: hub
+    # The stable topic namespace, one learner at a time. The real identity travels inside
+    # emori_msgs/Context, through the privacy gate.
+    person_id: learner_01
+    session_id: sim-session
+hri_context_analyzer:
+  ros__parameters:
+    person_id: learner_01
+hri_engagement_behaviors:
+  ros__parameters:
+    person_id: learner_01

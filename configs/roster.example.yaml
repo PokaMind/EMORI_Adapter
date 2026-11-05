@@ -1,0 +1,71 @@
+# EMORI staff roster (copy to roster.yaml; point the host app at it via EMORI_ROSTER).
+# Maps a QR-badge payload -> Pokamind identity. The QR carries only an opaque badge id;
+# all staff PII stays here on the robot/host side. Unknown/empty payloads -> anonymous.
+#
+# Sized for a small site (tens of staff), so this file is the whole roster. People are
+# added, edited and removed on the robot's admin page (People tab), which also prints
+# their QR badges; it edits this file in place and keeps these comments.
+#
+# ================ ROSTER NOTES: READ BEFORE ADDING A COURSE OR PATHWAY ================
+# deploy/robot/install.sh copies this file to configs/roster.yaml on EVERY robot, so what
+# is written here IS what a freshly imaged robot serves: nobody, until people are added.
+#
+#   course_id  - the SSO course claim for every badge below. Leave it OUT: the course then
+#                follows this robot's Pokamind token (the course issued with it, else
+#                EMORI_COURSE_ID in .env, else 'emori'). Set it here only to pin another.
+#   pathway    - filters the learner's module list by EXACT category string, accents and
+#                all: Pokamind compares it with the module category exactly. A value that
+#                matches no category yields ZERO modules, so the session never starts and
+#                a screenless robot just goes silent. The admin page offers only the
+#                pathways issued with this robot's token. Leave `pathway` OUT and the badge
+#                sees every module -- the same behaviour as the anonymous drop-in path,
+#                which is known to work. EMORI_PATHWAYS (empty = this robot's pathways in
+#                Pokamind) drops any roster pathway that is not one of them, with a
+#                WARNING, rather than take that badge silently out of service.
+# ========================================================================================
+
+# --- The anonymous identity (frictionless drop-in practice, no per-staff tracking) ---
+#
+# There is deliberately NO `anonymous:` block here. Without one, the robot uses its OWN
+# Pokamind account, derived at boot from its token (or the .env pair):
+#
+#     EMORI_ROBOT_ID=lobby-01            ->  student_id  robot-lobby-01
+#     EMORI_ROBOT_NAME=EMORI                 email       robot-lobby-01@emori.local
+#                                            name        EMORI
+#
+# PRODUCTION: that account must exist on exactly ONE robot. It is a real learner —
+# sessions, the weekly session cap and the analysis emails all accrue to it —
+# so two robots sharing an id interleave their history into one person and burn each
+# other's cap. `deploy/robot/install.sh` copies THIS file to configs/roster.yaml on every
+# robot, which is why the id lives with the robot (its token, or .env) and not here.
+# EMORI_ROBOT_ID unset (and no token) falls back to `robot-anonymous`, shared by every
+# unconfigured robot: usable on a bench, never in production.
+#
+# Uncomment only to pin a shared account explicitly (e.g. one account per ROOM rather
+# than per robot). Any field you leave out is still derived: a block with just
+# `student_id` gets `<student_id>@emori.local`, never another robot's mailbox.
+#anonymous:
+#  student_id: robot-lobby-01
+#  email: robot-lobby-01@emori.local
+#  name: EMORI
+
+# Identified staff (per-person progress + their assigned training). Empty until people
+# are added on the admin page. A record looks like this sample (commented out on
+# purpose: `pathway` and `module_id` are deployment data only this site knows, and a
+# wrong value in either takes the badge out of service with no visible cause; a record
+# without them is complete and works):
+#
+#  "EMORI:anna-001":
+#    student_id: anna-001
+#    email: anna@example.org
+#    name: "Anna Example"
+#    # EXACT category string only (see the banner above); omit to offer every module.
+#    #pathway: "<exact category string of your Pokamind course>"
+#  "EMORI:marc-002":
+#    student_id: marc-002
+#    email: marc@example.org
+#    name: "Marc Example"
+#    # A real module id: drops straight into one scenario (no picker). A stale or
+#    # invented id is another silent dead end -- confirm the id with Pokamind.
+#    #module_id: <module id>
+staff: {}

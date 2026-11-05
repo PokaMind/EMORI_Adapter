@@ -1,0 +1,62 @@
+# The OUTSIDE consumer: a ROS 2 base image + standard message packages, and not one line
+# of EMORI.
+#
+# This image exists to be ignorant. It proves that the topics `emori_adapter_ros` and (in
+# v2) `reachy_mini_ros2` publish are readable by a node that has never heard of this
+# repository: no `emori_adapter` on the Python path, no `emori_msgs` in the overlay, no
+# colcon workspace at all. If reading our REP-155 tree or the robot's joint states ever
+# required either, the build below would have to grow and the claim "standard ROS" would
+# be over.
+#
+# ONE DOCKERFILE, TWO DISTROS. v1's graph is Humble and v2's is Jazzy, and a consumer must
+# share the distro of the graph it reads: DDS interoperates across distros, but the
+# message TYPE HASHES do not, so a Humble subscriber and a Jazzy publisher of the same
+# topic discover each other and never match. Hence BASE/ROS_DISTRO as build args rather
+# than a second near-identical file that would drift.
+#
+# Build context is the repo root (the script lives under tests/):
+#   # v2 (the default):
+#   docker build -t emori/outside-consumer:jazzy -f deploy/ros2/Dockerfile.consumer .
+#   # v1, still exactly as it was:
+#   docker build -t emori/outside-consumer:amd64 -f deploy/ros2/Dockerfile.consumer \
+#       --build-arg BASE=ros:humble-ros-base --build-arg ROS_DISTRO_ARG=humble .
+#
+# Run it inside the adapter container's network namespace so ROS_LOCALHOST_ONLY=1 still
+# holds for both sides (same namespace = same loopback), which is what
+# scripts/outside_consumer_check.py does:
+#   docker run --rm --network container:emori-ros2-v2 \
+#       -e FASTDDS_BUILTIN_TRANSPORTS=UDPv4 \
+#       -v "$PWD/artifacts/outside-consumer:/out" \
+#       emori/outside-consumer:jazzy --person-id learner_01 --seconds 30 \
+#       --out /out/report.json
+ARG BASE=ros:jazzy-ros-base
+FROM ${BASE}
+
+# The distro name is needed twice below (the apt package prefix and the entrypoint path)
+# and cannot be derived from BASE, so it is its own argument. Named ROS_DISTRO_ARG rather
+# than ROS_DISTRO because the base image already exports ROS_DISTRO as an ENV, and an ARG
+# of the same name is shadowed by it in RUN instructions.
+ARG ROS_DISTRO_ARG=jazzy
+
+ENV DEBIAN_FRONTEND=noninteractive
+
+# Standard interfaces only:
+#   hri_msgs  -- ROS4HRI (REP-155): the person, engagement and expression lanes.
+#   tf2_msgs  -- /tf. sensor_msgs (JointState) is already in every ros-base image; tf2_msgs
+#                is not, and a consumer that cannot decode TFMessage reports an empty
+#                frame list that looks exactly like a robot publishing no transforms.
+# Deliberately no python3-pip: there is nothing to install, and an image that CAN pip
+# install is an image somebody will eventually pip install emori into.
+RUN apt-get update && apt-get install -y --no-install-recommends \
+        ros-${ROS_DISTRO_ARG}-hri-msgs \
+        ros-${ROS_DISTRO_ARG}-tf2-msgs \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /consumer
+COPY tests/ros/outside_consumer.py /consumer/outside_consumer.py
+
+# The base image's entrypoint sources /opt/ros/$ROS_DISTRO/setup.bash and execs "$@", so
+# putting the script here (rather than in CMD) means `docker run <image> --seconds 45`
+# appends arguments instead of replacing the command.
+ENTRYPOINT ["/ros_entrypoint.sh", "python3", "/consumer/outside_consumer.py"]
+CMD ["--person-id", "learner_01", "--seconds", "30", "--out", "/out/report.json"]

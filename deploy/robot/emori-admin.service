@@ -1,0 +1,59 @@
+# systemd unit: EMORI superadmin — phone-first robot management (Wi-Fi incl.
+# AP mode, speaker/mic volume, the EN/CA language toggle, service restarts,
+# readycheck, logs, reboot) on :8070.
+#
+# Install: sudo cp emori-admin.service /etc/systemd/system/emori-admin.service
+#          sudo systemctl enable --now emori-admin
+#
+# Configuration lives in /opt/emori/.env (EMORI_ADMIN_PIN, EMORI_ADMIN_TOKEN,
+# EMORI_ADMIN_PORT, ...; see .env.example). The PIN, hotspot and dashboard password
+# changed from the admin page live in secrets/admin.env, which outranks .env.
+#
+# THIS SERVICE HOLDS NO ROBOT CREDENTIAL. It loads .env ITSELF
+# (site_settings.load_admin_environment), leaving out the robot's Pokamind token,
+# the host app's secrets (EMORI_SKILL_KEY, EMORI_ROS_ID_SALT, EMORI_DASH_SALT) and
+# everything secrets/site.env holds; so .env and secrets/site.env are deliberately
+# NOT EnvironmentFile= here (systemd would hand it every key). Only the two files
+# whose every key it may hold are.
+#
+# DELIBERATELY INDEPENDENT of every other EMORI unit. This is the tool an
+# operator reaches for when the hostapp or kiosk is broken, so it must come up
+# — and stay up — even when they cannot: After=network.target ONLY, never
+# After=/PartOf=emori-hostapp.service (or emori-kiosk / emori-camera-bridge /
+# reachy-mini-daemon). It talks to the daemon (:8000) and the hostapp (:8090)
+# over plain HTTP with short timeouts and turns either being down into a
+# structured {"ok":false} response, never a crash or a hang.
+[Unit]
+Description=EMORI superadmin (standalone phone-first robot management, :8070)
+After=network.target
+
+[Service]
+User=pollen
+# 'audio' matches the other EMORI units' group for any future ALSA/PipeWire
+# node inspection; 'systemd-journal' is what lets GET /api/logs run a plain
+# `journalctl -u <unit>` with NO sudo at all — see deploy/robot/sudoers-emori-
+# admin, which deliberately does not grant journalctl access either way.
+# Mic verification itself is still the daemon API + readycheck's audio-duplex
+# gate, never a live PortAudio meter from this process: the hostapp owns
+# capture, and a second process opening PortAudio on a wedged stream can
+# SIGABRT the whole thing (see src/emori_adapter/hostapp/audio.py).
+SupplementaryGroups=audio systemd-journal
+# wpctl (volume) and pw-play (test-sound) are PipeWire-user-session tools; the
+# runtime dir is where the logged-in user's PipeWire socket lives — same
+# requirement as emori-hostapp.service and kiosk.service.
+Environment=XDG_RUNTIME_DIR=/run/user/1000
+# Runtime-created material (artifacts/admin_state.json — persisted audio
+# levels) must not be group/world readable.
+UMask=0077
+WorkingDirectory=/opt/emori
+# The robot-local settings layer (src/emori_adapter/site_settings.py), in precedence
+# order: a later file wins, exactly as site_settings.apply ranks them. Each is
+# optional ('-'); the process re-reads both itself at start anyway.
+EnvironmentFile=-/opt/emori/configs/site/settings.env
+EnvironmentFile=-/opt/emori/secrets/admin.env
+ExecStart=/opt/emori/.venv/bin/emori-admin
+Restart=on-failure
+RestartSec=3
+
+[Install]
+WantedBy=multi-user.target

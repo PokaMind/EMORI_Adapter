@@ -1,0 +1,28 @@
+<?xml version="1.0"?>
+<?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
+<package format="3">
+  <name>emori_adapter_bringup</name>
+  <version>0.1.0</version>
+  <description>Launch files + params that wire the EMORI Slice-2 ROS 2 graph:
+  adapter -> context analyzer -> engagement behaviours (+ FIWARE bridge).</description>
+  <maintainer email="dev@pokamind.com">Pokamind AB</maintainer>
+  <license>Apache-2.0</license>
+
+  <exec_depend>rclpy</exec_depend>
+  <exec_depend>emori_adapter_ros</exec_depend>
+  <exec_depend>hri_context_analyzer</exec_depend>
+  <exec_depend>hri_engagement_behaviors</exec_depend>
+  <exec_depend>emori_skill_facade</exec_depend>
+  <exec_depend>fiware_bridge</exec_depend>
+  <!-- v2 only (v2.launch.py): the robot node this bringup includes, and the
+       `ros_native` skill transport its facade resolves by entry point. Declared so
+       colcon orders them before this package and rosdep/ros2 launch can find them.
+       slice2.launch.py (v1) does not use either and is unaffected. -->
+  <exec_depend>reachy_mini_ros2</exec_depend>
+  <exec_depend>emori_skill_native</exec_depend>
+  <exec_depend>ros2launch</exec_depend>
+
+  <export>
+    <build_type>ament_python</build_type>
+  </export>
+</package>

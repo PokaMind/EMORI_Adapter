@@ -1,0 +1,6 @@
+# /emori/gateway/status. What /api/status and /healthz answer, without credentials.
+---
+string runtime              # ros|http
+bool demo
+bool robot
+string status_json          # /api/status + /healthz, no credentials

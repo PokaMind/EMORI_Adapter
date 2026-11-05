@@ -1,0 +1,15 @@
+{
+ "schema": 1,
+ "scenario": "cue_families",
+ "label": "one",
+ "mode": "sim",
+ "kind": "scripted",
+ "fast": true,
+ "voiced": true,
+ "untimed": [],
+ "self_check": [],
+ "lang": "en",
+ "wall0": 1793691857.0438752,
+ "commit": "ccbd3c8",
+ "t0": 86380.515
+}

@@ -1,0 +1,11 @@
+{"pid": 29980, "s": "meta", "schema": 1, "t": "<time>", "wall": "<time>"}
+{"d": 0.4, "i": 1, "kind": "goto", "ms": 0, "plan": 0, "reason": "farewell (session end) (settle)", "s": "apply", "t": "<time>"}
+{"i": 2, "moved": true, "n": 2, "outcome": "finished", "plan": 0, "revoked": false, "s": "batch_end", "skip_reason": "", "sustain": 0, "t": "<time>", "voice_seen": false}
+{"n": 2, "plan": 0, "s": "pickup", "speech": false, "t": "<time>", "voice": false}
+{"accepted": true, "d": 3.5, "i": 0, "kind": "play_recorded", "move": "welcoming1", "ms": 0, "plan": 0, "reason": "greeting (session start) (recorded welcoming1)", "s": "apply", "t": "<time>"}
+{"d": 0.4, "i": 1, "kind": "goto", "ms": 0, "plan": 0, "reason": "greeting (session start) (settle)", "s": "apply", "t": "<time>"}
+{"i": 2, "moved": true, "n": 2, "outcome": "finished", "plan": 0, "revoked": false, "s": "batch_end", "skip_reason": "", "sustain": 0, "t": "<time>", "voice_seen": false}
+{"n": 1, "plan": 0, "s": "pickup", "speech": false, "t": "<time>", "voice": false}
+{"d": 0.6, "i": 0, "kind": "goto", "ms": 16, "plan": 0, "reason": "look up at the person (session start)", "s": "apply", "t": "<time>"}
+{"action": "submitted", "s": "engagement", "t": "<time>"}
+{"action": "submitted", "s": "engagement", "t": "<time>"}

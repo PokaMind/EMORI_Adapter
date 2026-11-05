@@ -1,0 +1,5 @@
+# The ROS form of GET /api/move/trace: the arbiter's trace records after `since`, oldest first.
+# A negative `since` returns only the newest record; 0 returns everything still held.
+int64 since
+---
+MoveTraceRecord[] records

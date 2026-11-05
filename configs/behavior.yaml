@@ -1,0 +1,57 @@
+# EMORI behaviour tuning (loaded by BehaviorConfig.from_yaml; pass via `emori-run --config`).
+# These map 1:1 to emori_adapter.behavior.engine.BehaviorConfig.
+#
+# The same `behavior:` section is also read by the ROS lane's
+# hri_engagement_behaviors.policy.PolicyConfig.from_yaml (EMORI_BEHAVIOR_CONFIG, mounted
+# into the emori-ros2 container). BOTH loaders ignore keys they do not know, so a key
+# below may belong to one lane, the other, or both - it is marked where it matters.
+behavior:
+  # Above this context.escalation (0..1) the robot switches to de-escalation:
+  # slow, grounded, low-amplitude motion. Safety policy - never escalate back.
+  escalation_threshold: 0.6
+
+  # Daemon sound filename for audio backchannels ("mm-hm"). Empty = no audio
+  # backchannels (motion only). List available sounds: GET /api/media/sounds.
+  # Requires the daemon to be started WITHOUT --no-media.
+  backchannel_sound: ""
+
+  # Don't repeat an audio backchannel more often than this many ~2 s cycles.
+  backchannel_cooldown_cycles: 3
+
+  # Don't fire the full engagement-recovery routine more often than this.
+  recovery_cooldown_cycles: 2
+
+  # While ENGAGED, emit a slow affirming nod every N cycles.
+  nod_when_engaged_every: 4
+
+  # --- ROS lane only (hri_engagement_behaviors.policy) -----------------------
+  # The hostapp's BehaviorConfig.from_yaml ignores these two, so they are safe to
+  # keep here; the hostapp's own equivalents live in its CueConfig, not in this file.
+
+  # A sentence's motion budget, in seconds. The ROS lane holds the head for at most
+  # this long per sentence no matter how long the sentence is, so a long plan can
+  # never outlive the voice that asked for it. Override per container with
+  # EMORI_CUE_MAX_S.
+  cue_max_s: 4.0
+
+  # Above escalation_threshold every cue down-maps to a slow settle and its intensity
+  # is multiplied by this. Safety policy: de-escalate, never escalate back.
+  deescalated_k: 0.4
+
+# Translation-layer tuning (loaded by TranslationConfig.from_yaml). Applied on
+# every path: the hostapp live driver, emori-run --config, emori-session, ROS 2.
+translation:
+  # Engagement bands (with hysteresis between them):
+  #   score >= engagement_high -> ENGAGED ; score <= engagement_low -> DISENGAGED
+  #   in between, rising -> ENGAGING ; falling -> DISENGAGING
+  engagement_high: 0.62
+  engagement_low: 0.38
+
+  # Adaptive style-channel scaling (GroupBaseline): the live Pokamind distribution
+  # is dense (31 styles, each ~3-10%), so group masses are measured as deviations
+  # from a per-session running mean. gain amplifies the deviation; alpha is the
+  # EMA speed (lower = sustained states persist longer); warmup = cycles of
+  # absolute fallback before deviations kick in.
+  style_gain: 4.0
+  style_alpha: 0.05
+  style_warmup: 3

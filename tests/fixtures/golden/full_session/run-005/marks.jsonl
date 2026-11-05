@@ -1,0 +1,10 @@
+{"dur": 1.9666875, "name": "voice_span", "t": 86092.078}
+{"dur": 1.6000000000000005, "name": "voice_span", "t": 86095.04468749999}
+{"name": "voice_onset", "t": 86092.078}
+{"name": "voice_onset", "t": 86095.04468749999}
+{"name": "envelope_post", "t": 86096.718}
+{"name": "envelope_post", "t": 86097.718}
+{"dur": 1.8666875000000003, "name": "voice_span", "t": 86102.218}
+{"dur": 2.1000000000000005, "name": "voice_span", "t": 86105.0846875}
+{"name": "voice_onset", "t": 86102.218}
+{"name": "voice_onset", "t": 86105.0846875}

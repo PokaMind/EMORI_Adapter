@@ -1,0 +1,75 @@
+# --- Python ---
+__pycache__/
+*.py[cod]
+*.egg-info/
+*.egg
+.eggs/
+build/
+dist/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+
+# --- Virtual environments ---
+.venv*/
+venv/
+env/
+reachy_env/
+
+# --- uv ---
+# keep uv.lock committed; ignore caches only
+
+# --- Secrets / local config ---
+.env
+.env.local
+*.local.env
+secrets/
+*service-account*.json
+# The live badge roster: real names, e-mails and badge ids (the admin page's People tab
+# writes it, also on a dev box). Only configs/roster.example.yaml is tracked.
+configs/roster.yaml
+configs/.roster-*.tmp
+# robot-local state: saved settings, the Pokamind scope snapshot, spoken menus (never
+# shipped by a deploy)
+configs/site/
+
+# --- MuJoCo / Reachy caches ---
+*.mjcf.cache
+mujoco_cache/
+.reachy_mini/
+
+# --- ROS 2 / colcon (built inside the container) ---
+ros2_ws/build/
+ros2_ws/install/
+ros2_ws/log/
+
+# --- FIWARE / Docker local data ---
+deploy/**/data/
+deploy/**/*-data/
+
+# --- OS / editor ---
+.DS_Store
+Thumbs.db
+*.swp
+.idea/
+
+# --- Logs / scratch ---
+*.log
+scratch/
+
+# --- Optional add-ons: separate packages kept outside this repository ---
+/addons/
+
+# --- git worktrees kept inside the checkout ---
+.worktrees/
+
+artifacts/
+
+# Vendored offline speech models (downloaded via scripts/get_voice_models)
+models/
+voices/
+# ...except the 229 KB YuNet face detector, which is committed on purpose: it saves a
+# build-time download inside the long arm64 image build (an image that runs with
+# HF_HUB_OFFLINE=1), and it is the fixture tests/test_gaze_detector.py loads.
+!deploy/ros2/models/
+!deploy/ros2/models/*.onnx

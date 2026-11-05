@@ -1,0 +1,12 @@
+# Set the motor control mode, the ROS form of POST /api/motors/set_mode/{mode}.
+#
+# `gravity_compensation` is refused by the robot's own firmware today; the arbiter
+# LATCHES that refusal after one failure exactly as the host application does, so a
+# caller that retries in a loop cannot spend the serial bus on a mode that will never
+# be granted.  `mode` comes back in the response so a caller learns the effective mode
+# even when its request was refused.
+string mode        # enabled|disabled|gravity_compensation
+---
+bool ok
+string message     # why, when ok is false
+string mode        # the mode actually in force after the call

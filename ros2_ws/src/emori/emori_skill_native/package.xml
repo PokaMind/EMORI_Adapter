@@ -1,0 +1,37 @@
+<?xml version="1.0"?>
+<?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
+<package format="3">
+  <name>emori_skill_native</name>
+  <version>0.1.0</version>
+  <description>Native v2 skill transport: lets the skill facade submit motions through
+  the emori_adapter core in-process. A bounded skill request becomes GoTo /
+  PlayRecordedMove goals on the native Reachy Mini ROS 2 node, with no HTTP hop and no
+  daemon in the path, and it reuses the hostapp's own skill-to-intent mapping, so the
+  robot performs exactly the same gesture whichever side asked for it. The facade finds
+  it by entry point (emori_skill_facade.transports), so no standalone package ever
+  imports this one.</description>
+  <maintainer email="dev@pokamind.com">Pokamind AB</maintainer>
+  <license>Apache-2.0</license>
+  <url type="repository">https://github.com/pokamind/EMORI_Adapter</url>
+  <url type="bugtracker">https://github.com/pokamind/EMORI_Adapter/issues</url>
+  <author email="dev@pokamind.com">Pokamind AB</author>
+
+  <exec_depend>rclpy</exec_depend>
+  <exec_depend>emori_skill_facade</exec_depend>
+  <exec_depend>reachy_mini_msgs</exec_depend>
+  <exec_depend>geometry_msgs</exec_depend>
+  <exec_depend>std_srvs</exec_depend>
+  <!-- reachy_mini_msgs' two actions pull this in; naming it here keeps the transport
+       loadable from this package alone. -->
+  <exec_depend>action_msgs</exec_depend>
+  <!-- emori_adapter is a pip package (the adapter core), installed in the image by
+       `pip install .[pokamind]`; it has no rosdep key and is named in the README. -->
+
+  <test_depend>ament_copyright</test_depend>
+  <test_depend>ament_flake8</test_depend>
+  <test_depend>ament_pep257</test_depend>
+
+  <export>
+    <build_type>ament_python</build_type>
+  </export>
+</package>

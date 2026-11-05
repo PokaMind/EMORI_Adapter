@@ -1,0 +1,65 @@
+# Authoritative Pokamind -> ROS4HRI field mapping (reference for the ROS 2 layer
+# and docs/ros4hri-mapping.md). This is a spec, not loaded code.
+
+person:
+  # One learner at a time. The ROS4HRI topic namespace uses the STABLE `person_id`
+  # parameter (default learner_01) so the /humans/persons/<id>/ topic graph never
+  # churns between kiosk sessions; the TRUE per-session identity (roster student id
+  # + minted session id, stamped by the hostapp at /api/cycle) rides inside
+  # emori_msgs/Context.person_id / session_id, and identity-keyed consumers (the
+  # FIWARE bridge) read those fields, not the topic name.
+  id_source: "stable ROS param `person_id` (topic namespace); hostapp-stamped ids (Context fields)"
+  topics:
+    tracked: "/humans/persons/tracked            (hri_msgs/IdsList)"
+    engagement: "/humans/persons/<id>/engagement_status  (hri_msgs/EngagementLevel)"
+
+engagement_level:        # emori_adapter.translation.engagement -> hri_msgs/EngagementLevel
+  UNKNOWN: 0
+  DISENGAGED: 1
+  ENGAGING: 2
+  ENGAGED: 3
+  DISENGAGING: 4
+
+expression:              # derived valence/arousal -> discrete label (robot's own expressive intent)
+  # No node publishes an hri_msgs/Expression topic. The label uses the
+  # hri_msgs/Expression VOCABULARY but rides as string fields on emori_msgs/Context
+  # (expression + expression_confidence), alongside valence/arousal.
+  message: "emori_msgs/Context.expression (string, hri_msgs/Expression vocabulary)"
+  fields: { expression: "neutral|happy|sad|angry|surprised|scared|disgusted", valence: "-1..1", arousal: "-1..1", confidence: "0..1" }
+
+context:                 # EMORI extension (REP-155-compliant): /humans/persons/<id>/context/<key>
+  base_topic: "/humans/persons/<id>/context"
+  keys:
+    engagement_trend: "std_msgs/Float32  (-1..1, d(engagement)/dt)"
+    escalation: "std_msgs/Float32  (0..1, agitation trajectory -> de-escalation + trainer alert)"
+    rapport: "std_msgs/Float32  (0..1, relational)"
+    attention: "std_msgs/Float32  (0..1)"
+    dominant_style: "std_msgs/String  (one of the 31 styles)"
+    full: "emori_msgs/Context  (package at ros2_ws/src/open/emori_msgs; all of the above + expression + topic + note)"
+
+# Pokamind inputs — the live envelope the Pokamind service sends on the relay
+# (parser: src/emori_adapter/sources/websocket.py). The wire envelope is THIN: styles + body
+# only. Any body value may arrive null (body-analysis failure) and is dropped by
+# sanitize_envelope before parsing.
+pokamind_inputs:
+  communication_styles: "all 31 canonical styles, 0..100, dense (sum ~100)"
+  body_language:         # categorical + 2 numeric scores; every value nullable
+    posture: "leaning_forward|leaning_back|slouched|stiff|upright|relaxed|not_visible"
+    head_position: "nodding|shaking|tilted_left|tilted_right|down|straight|not_visible"
+    gesture_type: "open_palm|pointing|relaxed|not_visible"
+    overall_energy: "high|medium|low"
+    engagement_score: "0..100 numeric"
+    confidence_score: "0..100 numeric"
+    # values folded onto the adapter's canonical vocab via constants.BODY_VALUE_NORMALIZE
+  body_language_metrics: "{engagement, confidence} 0..100 (may be null)"
+  # Stamped by the hostapp at /api/cycle, NOT sent by Pokamind:
+  stamped_by_hostapp: "session_id, person_id, lang, meta.topic"
+
+# Mock-only / optional inputs (MockPokamindSource shape="rich"): the parser
+# tolerates them, but live envelopes NEVER carry them.
+mock_only_inputs:
+  facial_metrics: "5 dims 0..100 (eye_contact, engagement, smile_authenticity, expressiveness, positivity)"
+  tone_metrics: "5 dims 0..100 (warmth, steadiness, fluency, pitch_variety, projection)"
+  verbal_metrics: "5 dims 0..100 (clarity, warmth, curiosity, reasoning, expressiveness)"
+  prosody: "14-17 features (rate, f0_mean, f0_std, pauses, ...)"
+  transcript_delta: "incremental transcription for the cycle"

@@ -1,0 +1,23 @@
+<?xml version="1.0"?>
+<?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
+<package format="3">
+  <name>fiware_bridge</name>
+  <version>0.1.0</version>
+  <description>ROS 2 -> FIWARE NGSI-LD bridge. Subscribes the emori_msgs/Context
+  stream and historizes every cycle to Orion-LD via the canonical schema
+  (emori_adapter.fiware_schema), keyed off the per-session identity carried in the
+  message; QuantumLeap historizes into TimescaleDB for the trainer dashboard.</description>
+  <maintainer email="dev@pokamind.com">Pokamind AB</maintainer>
+  <license>Apache-2.0</license>
+
+  <exec_depend>rclpy</exec_depend>
+  <exec_depend>emori_msgs</exec_depend>
+
+  <test_depend>ament_copyright</test_depend>
+  <test_depend>ament_flake8</test_depend>
+  <test_depend>ament_pep257</test_depend>
+
+  <export>
+    <build_type>ament_python</build_type>
+  </export>
+</package>

@@ -1,0 +1,25 @@
+[Unit]
+Description=EMORI ROS 2 (ros4hri graph, containerised)
+Documentation=file:///opt/emori/docs/ros4hri-mapping.md
+After=docker.service emori-hostapp.service
+Wants=emori-hostapp.service
+
+# Deliberately NO PartOf=/BindsTo= on the hostapp, in BOTH directions:
+#   * a ROS restart must never bounce the kiosk (the stale-kiosk trap: the page
+#     survives a restart it did not need and then serves a deployed-away build);
+#   * a hostapp restart must not kill the graph — PokamindBridgeSource reconnects on
+#     its own with backoff, and the publisher node is launched with a retry budget of
+#     a million, which is exactly what "the graph outlives one restart" means.
+
+[Service]
+Type=simple
+User=pollen
+EnvironmentFile=/opt/emori/.env
+WorkingDirectory=/opt/emori
+ExecStart=/usr/bin/docker compose -f deploy/ros2/docker-compose.robot.yml up
+ExecStop=/usr/bin/docker compose -f deploy/ros2/docker-compose.robot.yml down
+Restart=always
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target

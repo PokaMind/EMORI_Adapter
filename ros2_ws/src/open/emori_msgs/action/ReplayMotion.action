@@ -1,0 +1,15 @@
+# Play one gesture from the bounded repertoire.  Served by skill_facade, which
+# translates the goal into POST /api/skill {"skill":"replay_motion", ...}.
+#
+# `name` is the closed vocabulary of emori_adapter.behavior.cues.REPLAY_MOTIONS:
+#   greeting|farewell|nod|listening|thinking|calm_settle|talking|head_tilt|
+#   antenna_wiggle|look_around
+# Anything else is a 400 out_of_range at the hostapp, so callers check first.
+string  name
+float32 intensity    # 0..1
+string  reason       # provenance for the trace
+---
+bool    completed
+string  error_code   # "" on success, else the /api/skill error_code
+---
+float32 progress     # 0..1

@@ -1,0 +1,61 @@
+# EMORI ROS 2 graph, ON THE ROBOT. The sim/off-robot file is docker-compose.yml;
+# this one exists because the two differ in the ways that break a robot quietly:
+#
+#   * host networking, so the container reaches the hostapp on 127.0.0.1 and the
+#     intake can keep refusing everything that is not loopback;
+#   * FIWARE_BRIDGE_ENABLED=0 — the hostapp already historizes every cycle, and two
+#     writers means every KPI is counted twice;
+#   * ROS_LOCALHOST_ONLY=1 — no DDS multicast onto a venue's wifi;
+#   * bounded memory/CPU — the camera bridge already costs ~104% of a core on the CM4.
+#
+# Nothing here holds a daemon URL: motion leaves the graph only as a skill request
+# POSTed by skill_facade to the hostapp's /api/skill, and only when
+# EMORI_ROS_MOTION_OWNER=ros. The image is built off the robot (see deploy/ros2/Dockerfile
+# and the aarch64 note there), never on the SD card.
+#
+#   docker compose -f deploy/ros2/docker-compose.robot.yml up -d
+services:
+  ros2:
+    image: emori/ros2-humble:latest
+    container_name: emori-ros2
+    network_mode: host
+    environment:
+      - EMORI_SOURCE=pokamind
+      - EMORI_WS_URL=${EMORI_WS_URL:-ws://127.0.0.1:8090/ws/relay}
+      # The hostapp is the FIWARE writer on the robot. Both knobs, because the launch
+      # file reads one and the bridge node reads the other.
+      - EMORI_WITH_FIWARE=false
+      - FIWARE_BRIDGE_ENABLED=0
+      # hostapp (default) computes + publishes everything and POSTs nothing.
+      - EMORI_ROS_MOTION_OWNER=${EMORI_ROS_MOTION_OWNER:-hostapp}
+      - EMORI_SKILL_URL=${EMORI_SKILL_URL:-http://127.0.0.1:8090/api/skill}
+      - EMORI_SKILL_KEY=${EMORI_SKILL_KEY:-}
+      # Which transport the facade posts through (emori_skill_facade/transport.py).
+      # hostapp_http is the only one that moves a real robot; `log` is the bench.
+      - EMORI_SKILL_TRANSPORT=${EMORI_SKILL_TRANSPORT:-hostapp_http}
+      # The behaviour thresholds the engagement node runs on: the path INSIDE the
+      # container, paired with the read-only bind mount below. Without both, a robot's
+      # tuned escalation threshold is silently not in force.
+      - EMORI_BEHAVIOR_CONFIG=/emori/configs/behavior.yaml
+      # What leaves this graph on DDS. ROS_LOCALHOST_ONLY is the only access control
+      # here, so ids are pseudonymous and speech text stays off unless a study needs it.
+      - EMORI_ROS_DEIDENTIFY=${EMORI_ROS_DEIDENTIFY:-1}
+      - EMORI_ROS_SPEECH_TEXT=${EMORI_ROS_SPEECH_TEXT:-0}
+      # Empty = a per-process random salt: pseudonyms are not linkable across restarts.
+      - EMORI_ROS_ID_SALT=${EMORI_ROS_ID_SALT:-}
+      - RMW_IMPLEMENTATION=rmw_fastrtps_cpp
+      - ROS_LOCALHOST_ONLY=1
+      - ROS_DOMAIN_ID=${ROS_DOMAIN_ID:-42}
+    volumes:
+      # ABSOLUTE default on the robot: install.sh lays the tuning file down at
+      # /opt/emori/configs/, and a relative path here would resolve against whatever
+      # directory systemd started the unit from.
+      - ${EMORI_ROS_BEHAVIOR_CONFIG_HOST:-/opt/emori/configs/behavior.yaml}:/emori/configs/behavior.yaml:ro
+    restart: unless-stopped
+    mem_limit: 512m
+    cpus: 1.0
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"

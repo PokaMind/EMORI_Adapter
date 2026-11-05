@@ -1,0 +1,37 @@
+<?xml version="1.0"?>
+<?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
+<package format="3">
+  <name>hri_engagement_behaviors</name>
+  <version>0.1.0</version>
+  <description>Engagement-to-behaviour mapping. Consumes
+  ROS4HRI engagement/context and decides engagement behaviour, emitting at most one
+  bounded skill request per event on /skill/* and a ledger on /diagnostics. It never
+  moves a robot itself and holds no daemon URL. The decision half (policy.py) is pure
+  stdlib Python and depends on nothing EMORI-specific. Includes a pyhri-based consumer
+  demo. Open-source generic infrastructure for social robots.</description>
+  <maintainer email="dev@pokamind.com">Pokamind AB</maintainer>
+  <license>Apache-2.0</license>
+  <url type="repository">https://github.com/pokamind/EMORI_Adapter</url>
+  <url type="bugtracker">https://github.com/pokamind/EMORI_Adapter/issues</url>
+  <author email="dev@pokamind.com">Pokamind AB</author>
+
+  <exec_depend>rclpy</exec_depend>
+  <exec_depend>hri_msgs</exec_depend>
+  <exec_depend>emori_msgs</exec_depend>
+  <!-- the /diagnostics ledger; part of ros-base, so it costs the image nothing -->
+  <exec_depend>diagnostic_msgs</exec_depend>
+  <!-- PolicyConfig.from_yaml reads configs/behavior.yaml (EMORI_BEHAVIOR_CONFIG) -->
+  <exec_depend>python3-yaml</exec_depend>
+  <!-- pyhri is NOT declared: apt has no ros-humble-pyhri, so declaring it makes
+       rosdep fail for everyone building this package. The optional pyhri_demo node
+       imports it lazily and is the only thing that needs it. -->
+
+
+  <test_depend>ament_copyright</test_depend>
+  <test_depend>ament_flake8</test_depend>
+  <test_depend>ament_pep257</test_depend>
+
+  <export>
+    <build_type>ament_python</build_type>
+  </export>
+</package>

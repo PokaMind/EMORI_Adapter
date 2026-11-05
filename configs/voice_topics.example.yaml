@@ -1,0 +1,32 @@
+# Screenless verbal topic menu: a spoken number -> a Pokamind module.
+# The robot speaks `prompt`, listens, and the recognised words are matched to an option
+# (see emori_adapter.hostapp.voice_topics.VoiceMenu.match). The chosen `module_id` is
+# carried through partner SSO so Pokamind starts that module directly (no topic screen).
+#
+# This file documents the format; the ids below are placeholders. A robot normally needs
+# no menu file at all: it builds one per language from its Pokamind record
+# (configs/site/auto/voice_topics.<lang>.yaml), and a menu saved on the phone admin page
+# (configs/site/voice_topics.<lang>.yaml) outranks that. Up to six options, keyed "1".."6".
+# A name has no comma and at most 60 characters; a keyword has no comma and must not be
+# part of another option's keyword. Unknown top-level keys are ignored.
+
+prompt: >-
+  Welcome. To choose your practice, say one for Difficult Conversations,
+  two for Consultative Sales, or three for Motivation to Learn.
+
+options:
+  "1":
+    module_id: demo-module-1
+    name: Difficult Conversations
+    keywords: [difficult, conversation, conversations]
+  "2":
+    module_id: demo-module-2
+    name: Consultative Sales
+    keywords: [consultative, "sales technique", selling]
+  "3":
+    module_id: demo-module-3
+    name: Motivation to Learn
+    keywords: [motivation, motivate, learn, learning]
+
+# When the learner says nothing recognisable, start this option (set to null to re-prompt).
+default: "1"

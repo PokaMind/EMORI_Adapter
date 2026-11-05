@@ -1,0 +1,10 @@
+# /emori/speech/say. Speaks a sentence of at most 200 characters on the robot's own speaker.
+# Refused while a live session or an add-on mode owns the speaker, or the kiosk is anywhere but
+# an idle landing page, and cut short if one of those starts while it plays.
+string text
+string lang
+---
+bool played
+string error_code           # session_active|addon_busy|kiosk_busy|speaker_busy|no_voice|too_long|play_failed
+---
+string stage                # synth|play

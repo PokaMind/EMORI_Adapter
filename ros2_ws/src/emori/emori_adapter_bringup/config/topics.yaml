@@ -1,0 +1,18 @@
+# Shared ROS 2 parameters for the EMORI Slice-2 graph.
+# Applied to all nodes via the launch file.
+/**:
+  ros__parameters:
+    # person_id is the STABLE ROS topic namespace (one learner at a time);
+    # the true per-session identity travels inside emori_msgs/Context.
+    person_id: "learner_01"
+    session_id: "sim-session"
+    cycle_period_s: 2.0
+    cycles_per_phase: 3
+    # mock | pokamind (pokamind = the live robot hub relay; see ws_url)
+    source: "mock"
+    ws_url: "ws://host.docker.internal:8080/ws/relay"
+    # NO daemon URL lives here on purpose: the hostapp is the single robot writer and
+    # skill_facade reaches it over HTTP (skill_url, launch arg / EMORI_SKILL_URL).
+    # Orion-LD as seen from inside the container (host-published port):
+    orion_url: "http://host.docker.internal:1026"
+    tenant: "pokamind"

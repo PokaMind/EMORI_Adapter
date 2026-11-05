@@ -1,0 +1,176 @@
+# EMORI ROS 2 **v2** (Jazzy) image: the robot itself is a node here.
+#
+# v1 (deploy/ros2/Dockerfile, Humble) ships an observer graph that asks the hostapp to
+# move the robot over HTTP. v2 ships `reachy_mini_ros2`, which owns Pollen's transport-free
+# `Backend` in-process, publishes /joint_states at 50 Hz, serves GoTo/PlayRecordedMove
+# actions, and runs a REST compatibility shim on :8000 so the unchanged hostapp keeps
+# talking to what it thinks is the daemon. Both images are kept: v1 stays the default.
+#
+#   docker build -t emori/ros2-jazzy-v2:latest -f deploy/ros2/Dockerfile.v2 .
+#   docker compose -f deploy/ros2/docker-compose.v2.yml build
+#
+# WHY JAZZY AND NOT HUMBLE. `reachy-mini` 1.10.0 requires Python >= 3.11. Humble is
+# Ubuntu 22.04 / Python 3.10, so the SDK cannot be installed there at all. Jazzy is
+# Ubuntu 24.04 / Python 3.12, which is also the CM4's Python -- the one distro where the
+# robot SDK and the ROS distro agree. (Jazzy EOL 2029-05; Humble EOL 2027-05.)
+#
+# FOR THE ROBOT (CM4, aarch64) the platform is not optional and must be stated:
+#   docker buildx build --platform linux/arm64 -t emori/ros2-jazzy-v2:latest \
+#       -f deploy/ros2/Dockerfile.v2 --load .
+# An accidental amd64 image installs and starts perfectly on a workstation and dies on
+# the robot with a bare `exec format error`, so the arch is echoed into the build log below
+# -- the cheapest place to notice is at build time, not in front of a person.
+#
+# The build is staged so the layers can be built and checked separately:
+#   docker build --target base    -f deploy/ros2/Dockerfile.v2 .   # apt only
+#   docker build --target pollen  -f deploy/ros2/Dockerfile.v2 .   # + the robot SDK + dataset
+#   docker build --target core    -f deploy/ros2/Dockerfile.v2 .   # + the EMORI core
+#   docker build                  -f deploy/ros2/Dockerfile.v2 .   # + colcon (the whole thing)
+ARG TARGETPLATFORM
+FROM --platform=$TARGETPLATFORM ros:jazzy-ros-base AS base
+ARG TARGETPLATFORM
+RUN echo "building for TARGETPLATFORM=${TARGETPLATFORM:-(unset)} uname -m=$(uname -m)"
+
+ENV DEBIAN_FRONTEND=noninteractive
+SHELL ["/bin/bash", "-c"]
+
+# Three groups in one layer, because they fail for three different reasons:
+#
+#  * ROS: hri_msgs is the ROS4HRI interface the two hri_ packages publish; diagnostic_msgs
+#    carries every ledger; v4l2_camera reads the robot's /dev/video40 (the v4l2loopback
+#    node EMORI's camera bridge already produces, and v4l2loopback allows several
+#    readers); audio_common is present so the launch file's `with_audio` arg has something
+#    to start, and is documented as untested.
+#  * reachy-mini's BUILD dependencies: it pulls PyGObject, which compiles against cairo and
+#    girepository. Without these four the pip install below fails halfway through a C
+#    compile with an error that names none of them.
+#  * MuJoCo headless: `MUJOCO_GL=egl` needs a libglvnd EGL/GLES stack even with no GPU
+#    (Mesa's software path answers the EGL calls). libosmesa6 is the documented fallback:
+#    `MUJOCO_GL=osmesa` is the second thing to try when a robot's EGL is broken, and having
+#    it in the image means that is a one-env-var experiment rather than a rebuild.
+RUN apt-get update && apt-get install -y --no-install-recommends \
+        python3-pip \
+        python3-colcon-common-extensions \
+        build-essential \
+        ros-jazzy-hri-msgs \
+        ros-jazzy-diagnostic-msgs \
+        ros-jazzy-v4l2-camera \
+        ros-jazzy-audio-common \
+        libcairo2-dev \
+        libgirepository1.0-dev \
+        gir1.2-gstreamer-1.0 \
+        gir1.2-gst-plugins-base-1.0 \
+        pkg-config \
+        python3-gi \
+        libegl1 \
+        libgles2 \
+        libosmesa6 \
+        libglvnd0 \
+        libglx0 \
+    && rm -rf /var/lib/apt/lists/*
+
+
+# --- the robot SDK ------------------------------------------------------------------
+FROM base AS pollen
+
+# Ubuntu 24.04 marks its Python externally managed (PEP 668), so every pip install in
+# this image needs --break-system-packages. That is the right call here and not a
+# workaround: the container IS the environment, there is no second consumer of this
+# interpreter, and a venv would mean re-exporting PYTHONPATH into every ROS node.
+#
+# THREE apt-owned distributions have to be got out of the way FIRST, or the reachy-mini
+# install dies a minute in, after every wheel has already been built:
+#
+#   * pip. reachy-mini 1.10.0 declares `Requires-Dist: pip>=26.1`; Ubuntu 24.04 ships
+#     pip 24.0 as a dpkg. Failure: `Cannot uninstall pip 24.0, RECORD file not found`.
+#   * numpy. reachy-mini needs `numpy>=2.2.5` (so does mujoco 3.3.0); `ros:jazzy-ros-base`
+#     pulls python3-numpy 1.26.4 as a dpkg. Same failure, same reason.
+#   * PyGObject. reachy-mini caps it at `<=3.46.0` (for its GStreamer media server, which
+#     this image never starts); the python3-gi above IS 3.48.2, so pip tries to DOWNGRADE
+#     it and fails with `uninstall-distutils-installed-package` instead.
+#
+# apt-installed distributions have no RECORD file (or are distutils projects), so pip
+# cannot know which files belong to them and refuses to uninstall rather than orphaning
+# half of one. `--ignore-installed` in a SEPARATE command installs fresh copies into
+# /usr/local/lib/python3.12/dist-packages, which precedes /usr/lib/python3/dist-packages
+# on the Debian path; the apt copies stay exactly where apt believes they are, and the
+# requirements below are then already satisfied so nothing is uninstalled at all. All
+# three failures were observed in practice, one build apiece.
+#
+# reachy-mini is pinned to 1.10.0 exactly. This is the version whose source was read to
+# write reachy_mini_ros2 (backend/abstract.py line numbers are quoted in that package's
+# docstrings); a floating version would silently change the API the node codes against.
+RUN pip3 install --break-system-packages --no-cache-dir --ignore-installed \
+        "pip>=26.1" "numpy>=2.2.5" "PyGObject>=3.42.2,<=3.46.0" \
+    && pip3 install --break-system-packages --no-cache-dir "reachy-mini[mujoco]==1.10.0"
+
+# Jazzy is built against numpy 1.26 and now runs on numpy 2.x. Nothing in ros-base links
+# the numpy C API (rclpy is pybind11, sensor_msgs_py is pure Python), so this is expected
+# to be fine -- and "expected to be fine" is exactly the kind of claim that should cost
+# one second at build time rather than a confusing ImportError on a robot.
+RUN source /opt/ros/jazzy/setup.bash \
+    && python3 -c "import numpy, rclpy, sensor_msgs.msg, geometry_msgs.msg, tf2_ros; \
+import mujoco, reachy_mini; \
+print('numpy', numpy.__version__, '| mujoco', mujoco.__version__, \
+'| reachy_mini', reachy_mini.__version__ if hasattr(reachy_mini, '__version__') else '1.10.0', \
+'| rclpy + sensor/geometry msgs + tf2_ros import cleanly')"
+
+# The emotions library, baked in. `RecordedMoves(dataset)` pulls 85 moves from the Hugging
+# Face hub on first use; doing that at RUN time means a rehearsal on a venue's wifi (or an
+# air-gapped robot) stalls the first expression request by however long the download takes,
+# and fails outright with no network at all. HF_HOME is stated explicitly rather than left
+# at ~/.cache so the cache written here is provably the one read at runtime.
+ENV HF_HOME=/opt/hf
+RUN python3 -c "from reachy_mini.motion.recorded_move import RecordedMoves; \
+print('emotions library cached:', \
+len(RecordedMoves('pollen-robotics/reachy-mini-emotions-library').list_moves()), 'moves')"
+
+
+# --- the EMORI core -----------------------------------------------------------------
+FROM pollen AS core
+
+WORKDIR /emori
+
+# The pure-Python core. `emori_skill_native` imports `emori_adapter.behavior.cues` to turn
+# a skill body into the same intents the hostapp's intake builds, so unlike the three
+# publishable ROS packages it legitimately needs the core installed.
+COPY pyproject.toml README.md ./
+COPY src ./src
+# The behaviour tuning the ROS engagement node reads (EMORI_BEHAVIOR_CONFIG, set to
+# /emori/configs/behavior.yaml by both v2 compose files). This COPY is the image DEFAULT;
+# a robot that tunes its own thresholds bind-mounts over it read-only.
+COPY configs/behavior.yaml ./configs/behavior.yaml
+# .[pokamind] brings the websockets client the LIVE source needs (source:=pokamind).
+RUN pip3 install --break-system-packages --no-cache-dir ".[pokamind]"
+
+
+# --- the workspace ------------------------------------------------------------------
+FROM core AS workspace
+
+# emori_msgs + reachy_mini_msgs + every node package.
+COPY ros2_ws ./ros2_ws
+RUN source /opt/ros/jazzy/setup.bash \
+    && cd ros2_ws \
+    && colcon build --event-handlers console_direct+
+
+# The entrypoint is written here rather than copied: deploy/ros2/entrypoint.sh sources
+# Humble and belongs to v1, which this image must not disturb.
+RUN printf '%s\n' \
+    '#!/usr/bin/env bash' \
+    'set -e' \
+    '# Source ROS 2 Jazzy + the built EMORI workspace, then run the given command.' \
+    'source /opt/ros/jazzy/setup.bash' \
+    'source /emori/ros2_ws/install/setup.bash' \
+    'exec "$@"' > /entrypoint.sh \
+    && chmod +x /entrypoint.sh
+
+# MUJOCO_GL=egl is what makes the simulator and its offscreen camera renderer work with no
+# display and no GPU (verified in emori/rm-lab:humble). HF_HUB_OFFLINE stays 0 so a dataset
+# that is NOT in the image can still be fetched; the bake above means the default one never
+# needs to be.
+ENV MUJOCO_GL=egl \
+    HF_HUB_OFFLINE=0 \
+    HF_HOME=/opt/hf
+
+ENTRYPOINT ["/entrypoint.sh"]
+CMD ["ros2", "launch", "emori_adapter_bringup", "v2.launch.py"]

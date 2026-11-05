@@ -1,0 +1,79 @@
+# The hub container, on the robot. emori-hub.service runs it; nothing starts it by hand.
+#
+# The hub is the host application hosted beside rclpy: the kiosk's HTTP surface on :8090, the
+# session code, speech and the robot client that reaches the motor container over ROS 2. It
+# runs as the robot's user (uid 1000), on the host's network, with a private IPC namespace.
+# Audio goes through the host's PipeWire socket, and the only device it reaches is the USB bus,
+# for the mic chip's direction of arrival.
+#
+# Every bind source below must exist before `up`. With the long syntax and
+# create_host_path: false, Compose refuses a missing source; with the short syntax Docker
+# would create it as a root-owned directory, and a directory in place of the PipeWire socket
+# leaves the robot deaf and mute. The unit creates or waits for each one first.
+services:
+  hub:
+    image: emori/hub:robot
+    pull_policy: never
+    container_name: emori-hub
+    user: "1000:1000"
+    # The host's audio group.
+    group_add: ["29"]
+    network_mode: host
+    ipc: private
+    # A Python process as PID 1 does not die on abort(), which is how a wedged audio stream
+    # ends. tini does, and it reaps the child processes the hub starts.
+    init: true
+    # The unit restarts the whole stack; Compose does not restart on its own.
+    restart: "no"
+    working_dir: /opt/emori
+    stop_signal: SIGTERM
+    stop_grace_period: 12s
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
+    # The motor container is at -500 and the browser's renderer is the process to go first.
+    oom_score_adj: 0
+    tmpfs: ["/tmp:size=128m"]
+    # USB, major 189. A bind of the bus and not one device: a replug renumbers it.
+    device_cgroup_rules: ["c 189:* rw"]
+    ulimits:
+      # The systemd default, not the container runtime's much larger one.
+      nofile: {soft: 1024, hard: 524288}
+      # A container starts with an unlimited core-file size. A crash would write the hub's
+      # memory, with the robot token and the audio buffers in it, to the card.
+      core: {soft: 0, hard: 0}
+    environment:
+      - HOME=/home/pollen
+      # rcl logging needs a directory this user can write.
+      - ROS_LOG_DIR=/tmp/roslog
+      - XDG_RUNTIME_DIR=/run/user/1000
+      - RMW_IMPLEMENTATION=rmw_fastrtps_cpp
+      - ROS_DOMAIN_ID=42
+      - ROS_LOCALHOST_ONLY=0
+      - FASTRTPS_DEFAULT_PROFILES_FILE=/etc/emori/fastdds_peers.xml
+      # What systemd parsed from the unit's environment files, written by env-snapshot.py.
+      - EMORI_HUB_ENV_JSON=/run/emori-hub/env.json
+      # The host application writes to FIWARE; the hub does not.
+      - EMORI_WITH_FIWARE=false
+      - FIWARE_BRIDGE_ENABLED=0
+    volumes:
+      - {type: bind, source: /opt/emori, target: /opt/emori}
+      - {type: bind, source: /dev/bus/usb, target: /dev/bus/usb, read_only: true,
+         bind: {create_host_path: false}}
+      - {type: bind, source: /run/user/1000/pipewire-0, target: /run/user/1000/pipewire-0,
+         bind: {create_host_path: false}}
+      - {type: bind, source: /run/emori-hub, target: /run/emori-hub, read_only: true,
+         bind: {create_host_path: false}}
+      - {type: bind, source: /home/pollen/.cache/emori, target: /home/pollen/.cache/emori,
+         bind: {create_host_path: false}}
+      - {type: bind, source: /etc/localtime, target: /etc/localtime, read_only: true}
+      # A copy the unit writes. A host can go without /etc/timezone, and Docker refuses a
+      # missing source.
+      - {type: bind, source: /run/emori-hub/timezone, target: /etc/timezone, read_only: true,
+         bind: {create_host_path: false}}
+      # A copy that emori-hub-resolv.path keeps current. A container gets /etc/resolv.conf
+      # as it was at start, and NetworkManager replaces the host's file by rename.
+      - {type: bind, source: /run/emori-hub/resolv.conf, target: /etc/resolv.conf,
+         read_only: true, bind: {create_host_path: false}}
+    # Output reaches the journal through the attached `docker compose up`, so the journal
+    # stays volatile and nothing is written to the card.
+    logging: {driver: none}

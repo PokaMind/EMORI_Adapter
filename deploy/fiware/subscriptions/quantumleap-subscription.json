@@ -1,0 +1,53 @@
+{
+  "type": "Subscription",
+  "description": "EMORI QuantumLeap historization",
+  "entities": [
+    {
+      "type": "Session"
+    }
+  ],
+  "watchedAttributes": [
+    "engagementLevel",
+    "engagementScore",
+    "valence",
+    "arousal",
+    "escalation",
+    "rapport",
+    "attention",
+    "engagementTrend",
+    "dominantStyle",
+    "sessionSummary",
+    "avgEngagement",
+    "recoveryAttempts",
+    "recoverySuccesses"
+  ],
+  "notification": {
+    "attributes": [
+      "engagementLevel",
+      "engagementScore",
+      "valence",
+      "arousal",
+      "escalation",
+      "rapport",
+      "attention",
+      "engagementTrend",
+      "dominantStyle",
+      "sessionSummary",
+      "avgEngagement",
+      "recoveryAttempts",
+      "recoverySuccesses"
+    ],
+    "format": "normalized",
+    "endpoint": {
+      "uri": "http://quantumleap:8668/v2/notify",
+      "accept": "application/json",
+      "receiverInfo": [
+        {
+          "key": "fiware-service",
+          "value": "pokamind"
+        }
+      ]
+    }
+  },
+  "@context": "https://uri.etsi.org/ngsi-ld/v1/ngsi-ld-core-context-v1.8.jsonld"
+}

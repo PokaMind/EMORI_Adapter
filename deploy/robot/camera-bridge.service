@@ -1,0 +1,51 @@
+# systemd unit: feed the Reachy Mini CSI camera (IMX708, via libcamera) into the
+# v4l2loopback node /dev/video40 so Chromium/Pokamind sees a normal webcam.
+# Install: sudo cp camera-bridge.service /etc/systemd/system/emori-camera-bridge.service
+#          sudo systemctl enable --now emori-camera-bridge
+#
+# /dev/video40 (not 10): on ReachyMiniOS the low numbers are ALL taken — video10-12/18/31
+# are bcm2835-codec-decode, 13-16/20-23 bcm2835-isp, 19 rpi-hevc-dec. 40 is free.
+# Keep in sync with setup-camera-bridge.sh (VIDEO_NR).
+#
+# REQUIRES the reachy daemon to be running with --no-media (it otherwise owns libcamera
+# exclusively). NV12 is the sensor-native format (lowest CPU); convert once to YUY2 for Chromium.
+#
+# The pipeline itself lives in camera-bridge.sh, because systemd does NOT do
+# "${VAR:-default}" expansion and the dim-room badge fix needs tunable exposure/brightness
+# knobs. Override them in /etc/default/emori-camera (EMORI_CAM_FPS, _BRIGHTNESS, _CONTRAST,
+# _BALANCE, _SRC_CONTROLS); a missing file is not an error (EnvironmentFile=-).
+[Unit]
+Description=EMORI camera bridge (libcamera IMX708 -> /dev/video40 for Chromium/Pokamind)
+After=reachy-mini-daemon.service
+Wants=reachy-mini-daemon.service
+
+[Service]
+User=pollen
+# EnvironmentFile FIRST, above both ExecStartPre lines: systemd applies it to every Exec
+# line in the unit, but the ROS loopback pre-step READS EMORI_CAM_ROS_VIDEO_NR from it,
+# so keeping the two adjacent is what stops the next editor from splitting them.
+EnvironmentFile=-/etc/default/emori-camera
+# '+' = run as root: modprobe needs CAP_SYS_MODULE, which the pollen user lacks.
+# max_buffers=2 matches the persisted /etc/modprobe.d options (setup-camera-bridge.sh).
+ExecStartPre=+/bin/sh -c 'test -e /dev/video40 || modprobe v4l2loopback video_nr=40 exclusive_caps=1 card_label="ReachyCam" max_buffers=2'
+# The ROS robot node's own loopback (v2 face look-at). Called BARE, with no argument:
+# systemd does not do "${VAR:-default}" expansion, so the default lives in the script and
+# the script reads EMORI_CAM_ROS_VIDEO_NR from the EnvironmentFile above. Unset = no-op,
+# which is why a v1 robot's unit behaves exactly as it did.
+#
+# '+-', not '+': '-' makes a non-zero exit NON-FATAL. The kiosk's /dev/video40 badge
+# scanner is the shipped capability and face look-at is the optional one, so look-at must
+# never be able to take the bridge -- and with it the badge scanner -- down. Every way
+# this step can fail is real: `v4l2loopback-ctl add` refused (number in use, a stale dkms
+# build after a kernel upgrade, a module built without live add), v4l2loopback-utils not
+# installed, or 203/EXEC because the script lost its exec bit in transit. The kiosk
+# modprobe pre-step above keeps NO '-': without video40 there is nothing to serve.
+# camera-bridge.sh applies the same rule one file over (it warns, not fails, when the ROS
+# device is absent).
+ExecStartPre=+-/opt/emori/deploy/robot/ros-loopback.sh
+ExecStart=/opt/emori/deploy/robot/camera-bridge.sh
+Restart=on-failure
+RestartSec=2
+
+[Install]
+WantedBy=multi-user.target

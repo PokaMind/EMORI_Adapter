@@ -1,0 +1,367 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="100%" height="100%" viewBox="0 0 2400 1200" role="img" aria-labelledby="t d">
+  <title id="t">The EMORI adapter architecture: the Pokamind session feed, the hostapp hub, the five-node ROS 2 / ROS4HRI graph, the FIWARE chain and the robot</title>
+  <desc id="d">A Pokamind session emits an analysis cycle about every two seconds and one event per spoken sentence. The kiosk page relays each envelope to the hostapp, which stamps the session identity and fans it out to the in-process driver, the recorder and the /ws/relay broadcast. The emori_adapter node reads that broadcast and publishes three standard REP-155 person topics plus two EMORI extensions, Context and SpeechCue. A context analyzer splits Context into single-purpose topics, an engagement node names a bounded motion on the /skill lane, and a FIWARE bridge historizes to NGSI-LD. Only skill_facade runs a request, and it does so by posting to the hostapp, which owns the single robot queue.</desc>
+  <defs>
+    <marker id="a-poka" markerWidth="9" markerHeight="9" refX="7.4" refY="4.5" orient="auto" markerUnits="strokeWidth"><path d="M 0 0 L 9 4.5 L 0 9 z" fill="#2563eb"/></marker>
+    <marker id="a-host" markerWidth="9" markerHeight="9" refX="7.4" refY="4.5" orient="auto" markerUnits="strokeWidth"><path d="M 0 0 L 9 4.5 L 0 9 z" fill="#b45309"/></marker>
+    <marker id="a-ros" markerWidth="9" markerHeight="9" refX="7.4" refY="4.5" orient="auto" markerUnits="strokeWidth"><path d="M 0 0 L 9 4.5 L 0 9 z" fill="#7c3aed"/></marker>
+    <marker id="a-std" markerWidth="9" markerHeight="9" refX="7.4" refY="4.5" orient="auto" markerUnits="strokeWidth"><path d="M 0 0 L 9 4.5 L 0 9 z" fill="#0f766e"/></marker>
+    <marker id="a-ext" markerWidth="9" markerHeight="9" refX="7.4" refY="4.5" orient="auto" markerUnits="strokeWidth"><path d="M 0 0 L 9 4.5 L 0 9 z" fill="#be123c"/></marker>
+    <marker id="a-fiware" markerWidth="9" markerHeight="9" refX="7.4" refY="4.5" orient="auto" markerUnits="strokeWidth"><path d="M 0 0 L 9 4.5 L 0 9 z" fill="#047857"/></marker>
+    <marker id="a-robot" markerWidth="9" markerHeight="9" refX="7.4" refY="4.5" orient="auto" markerUnits="strokeWidth"><path d="M 0 0 L 9 4.5 L 0 9 z" fill="#475569"/></marker>
+    <style>
+      text { font-family: Inter, "Segoe UI", Helvetica, Arial, sans-serif; fill: #16243a; }
+      .b-mono, .wire { font-family: "JetBrains Mono", Consolas, monospace; }
+      .canvas { fill: #ffffff; }
+      .kicker { font-size: 13px; font-weight: 800; letter-spacing: .15em; fill: #b45309; }
+      .title { font-size: 32px; font-weight: 800; letter-spacing: -.02em; fill: #0f172a; }
+      .subtitle { font-size: 15px; font-weight: 500; fill: #52637a; }
+      .group { fill: #fbfaff; stroke: #ddd6fe; stroke-width: 1.6; stroke-dasharray: 8 6; }
+      .group-label { font-size: 13px; font-weight: 800; letter-spacing: .06em; fill: #7c3aed; }
+      .box { stroke-width: 1.8; }
+      .box-dashed { stroke-dasharray: 6 5; }
+      .badge { font-size: 10px; font-weight: 850; letter-spacing: .1em; }
+      .b-title { font-size: 16.5px; font-weight: 800; fill: #111d2e; }
+      .b-body { font-size: 13px; font-weight: 500; fill: #35485d; }
+      .b-mono { font-size: 12px; font-weight: 500; fill: #1f3348; }
+      .b-foot { font-size: 11px; font-weight: 600; fill: #6b7c8e; }
+      .edge { fill: none; stroke-linecap: round; stroke-linejoin: round; }
+      .dashed { stroke-dasharray: 7 6; }
+      .wire { font-size: 12px; font-weight: 700; paint-order: stroke; stroke: #ffffff;
+               stroke-width: 4.5px; stroke-linejoin: round; }
+      .legend { font-size: 12px; font-weight: 700; fill: #52637a; }
+      .cap { font-size: 14px; font-weight: 500; fill: #35485d; }
+      .foot { font-size: 11px; font-weight: 500; fill: #94a3b8; }
+      .box-poka { fill: #eff6ff; stroke: #2563eb; }
+      .badge-poka { fill: #2563eb; }
+      .edge-poka { stroke: #2563eb; }
+      .w-poka { fill: #2563eb; }
+      .box-host { fill: #fffbeb; stroke: #b45309; }
+      .badge-host { fill: #b45309; }
+      .edge-host { stroke: #b45309; }
+      .w-host { fill: #b45309; }
+      .box-ros { fill: #f5f3ff; stroke: #7c3aed; }
+      .badge-ros { fill: #7c3aed; }
+      .edge-ros { stroke: #7c3aed; }
+      .w-ros { fill: #7c3aed; }
+      .box-std { fill: #f0fdfa; stroke: #0f766e; }
+      .badge-std { fill: #0f766e; }
+      .edge-std { stroke: #0f766e; }
+      .w-std { fill: #0f766e; }
+      .box-ext { fill: #fff1f2; stroke: #be123c; }
+      .badge-ext { fill: #be123c; }
+      .edge-ext { stroke: #be123c; }
+      .w-ext { fill: #be123c; }
+      .box-fiware { fill: #ecfdf5; stroke: #047857; }
+      .badge-fiware { fill: #047857; }
+      .edge-fiware { stroke: #047857; }
+      .w-fiware { fill: #047857; }
+      .box-robot { fill: #f1f5f9; stroke: #475569; }
+      .badge-robot { fill: #475569; }
+      .edge-robot { stroke: #475569; }
+      .w-robot { fill: #475569; }
+    </style>
+  </defs>
+  <rect x="0" y="0" width="2400" height="1200" class="canvas"/>
+  <g id="header">
+    <text x="40" y="44" class="kicker">EMORI ADAPTER · REACHY MINI</text>
+    <text x="40" y="82" class="title">From a Pokamind session to ROS4HRI signals, robot behaviour and FIWARE analytics</text>
+    <text x="40" y="106" class="subtitle">The ROS 2 graph works out what the robot should do. The hostapp is the only component that moves it.</text>
+    <rect x="1230" y="40" width="15" height="15" rx="3" fill="#eff6ff" stroke="#2563eb" stroke-width="1.7"/><text x="1251" y="53" class="legend">Pokamind</text>
+    <rect x="1321" y="40" width="15" height="15" rx="3" fill="#fffbeb" stroke="#b45309" stroke-width="1.7"/><text x="1342" y="53" class="legend">hostapp</text>
+    <rect x="1404" y="40" width="15" height="15" rx="3" fill="#f5f3ff" stroke="#7c3aed" stroke-width="1.7"/><text x="1425" y="53" class="legend">ROS 2 node</text>
+    <rect x="1510" y="40" width="15" height="15" rx="3" fill="#f0fdfa" stroke="#0f766e" stroke-width="1.7"/><text x="1531" y="53" class="legend">REP-155 topic</text>
+    <rect x="1638" y="40" width="15" height="15" rx="3" fill="#fff1f2" stroke="#be123c" stroke-width="1.7"/><text x="1659" y="53" class="legend">EMORI message</text>
+    <rect x="1766" y="40" width="15" height="15" rx="3" fill="#ecfdf5" stroke="#047857" stroke-width="1.7"/><text x="1787" y="53" class="legend">FIWARE</text>
+    <rect x="1842" y="40" width="15" height="15" rx="3" fill="#f1f5f9" stroke="#475569" stroke-width="1.7"/><text x="1863" y="53" class="legend">robot</text>
+  </g>
+  <g id="ros-group">
+    <title>the ROS 2 container</title>
+    <rect x="1100" y="268" width="1240" height="500" rx="16" class="group"/>
+    <text x="1120" y="294" class="group-label">ROS 2 HUMBLE  ·  ONE CONTAINER, FIVE NODES, ONE LOCAL DDS DOMAIN</text>
+  </g>
+  <g id="e-poka-kiosk">
+    <title>the session posts to its host page</title>
+    <polyline points="310,202 360,202" class="edge edge-poka" stroke-width="2.6" marker-end="url(#a-poka)"/>
+    <text x="335" y="142" class="wire w-poka" text-anchor="middle">analysis + speech</text>
+  </g>
+  <g id="e-kiosk-hub">
+    <title>the page relays every envelope</title>
+    <polyline points="560,202 610,202" class="edge edge-poka" stroke-width="2.6" marker-end="url(#a-poka)"/>
+    <text x="585" y="142" class="wire w-poka" text-anchor="middle">POST /api/cycle</text>
+  </g>
+  <g id="e-fan-stem">
+    <title>the fan-out</title>
+    <polyline points="750,255 750,282" class="edge edge-host" stroke-width="2.4"/>
+  </g>
+  <g id="e-fan-spine">
+    <title>three consumers</title>
+    <polyline points="185,282 960,282" class="edge edge-host" stroke-width="2.4"/>
+  </g>
+  <g id="e-fan-driver">
+    <title>the in-process driver</title>
+    <polyline points="185,282 185,310" class="edge edge-host" stroke-width="2.4" marker-end="url(#a-host)"/>
+  </g>
+  <g id="e-fan-record">
+    <title>the recorder and the local store</title>
+    <polyline points="460,282 460,310" class="edge edge-host" stroke-width="2.4" marker-end="url(#a-host)"/>
+  </g>
+  <g id="e-fan-relay">
+    <title>the relay broadcast</title>
+    <polyline points="960,282 960,310" class="edge edge-host" stroke-width="2.4" marker-end="url(#a-host)"/>
+  </g>
+  <g id="e-driver-player">
+    <title>motion intents reach the queue</title>
+    <polyline points="185,415 185,470" class="edge edge-host" stroke-width="2.6" marker-end="url(#a-host)"/>
+    <text x="199" y="448" class="wire w-host" text-anchor="start">MotionIntent</text>
+  </g>
+  <g id="e-driver-fiware">
+    <title>the driver is what writes to the broker</title>
+    <polyline points="260,415 260,442 710,442 710,470" class="edge edge-host" stroke-width="2.4" marker-end="url(#a-host)"/>
+  </g>
+  <g id="e-skill-player">
+    <title>a skill request joins the same queue</title>
+    <polyline points="360,522 310,522" class="edge edge-host" stroke-width="2.6" marker-end="url(#a-host)"/>
+    <text x="335" y="462" class="wire w-host" text-anchor="middle">same queue</text>
+  </g>
+  <g id="e-player-daemon">
+    <title>the queue paces the daemon</title>
+    <polyline points="185,575 185,630" class="edge edge-host" stroke-width="2.6" marker-end="url(#a-host)"/>
+    <text x="199" y="608" class="wire w-host" text-anchor="start">POST /api/move/*</text>
+  </g>
+  <g id="e-daemon-robot">
+    <title>the daemon drives the hardware</title>
+    <polyline points="185,735 185,790" class="edge edge-robot" stroke-width="2.6" marker-end="url(#a-robot)"/>
+  </g>
+  <g id="e-fclient-fiware">
+    <title>one row per cycle</title>
+    <polyline points="710,575 710,630" class="edge edge-host" stroke-width="2.6" marker-end="url(#a-host)"/>
+    <text x="724" y="608" class="wire w-host" text-anchor="start">NGSI-LD</text>
+  </g>
+  <g id="e-relay-adapter">
+    <title>the ROS graph reads the relay and never drives from it</title>
+    <polyline points="1060,362 1090,362 1090,400 1120,400" class="edge edge-host" stroke-width="3.0" marker-end="url(#a-host)"/>
+  </g>
+  <g id="e-pub-stem">
+    <title>publishes</title>
+    <polyline points="1360,400 1385,400" class="edge edge-ros" stroke-width="2.4"/>
+  </g>
+  <g id="e-pub-spine">
+    <title>the published topics</title>
+    <polyline points="1385,328 1385,608" class="edge edge-ros" stroke-width="2.4"/>
+  </g>
+  <g id="e-pub1">
+    <title>tracked</title>
+    <polyline points="1385,328 1410,328" class="edge edge-ros" stroke-width="2.2" marker-end="url(#a-ros)"/>
+  </g>
+  <g id="e-pub2">
+    <title>anonymous</title>
+    <polyline points="1385,398 1410,398" class="edge edge-ros" stroke-width="2.2" marker-end="url(#a-ros)"/>
+  </g>
+  <g id="e-pub3">
+    <title>engagement_status</title>
+    <polyline points="1385,468 1410,468" class="edge edge-ros" stroke-width="2.2" marker-end="url(#a-ros)"/>
+  </g>
+  <g id="e-pub4">
+    <title>context</title>
+    <polyline points="1385,538 1410,538" class="edge edge-ros" stroke-width="2.2" marker-end="url(#a-ros)"/>
+  </g>
+  <g id="e-pub5">
+    <title>speech_cue</title>
+    <polyline points="1385,608 1410,608" class="edge edge-ros" stroke-width="2.2" marker-end="url(#a-ros)"/>
+  </g>
+  <g id="e-ctx-analyzer">
+    <title>context reaches the analyzer</title>
+    <polyline points="1700,530 1710,530 1710,350 1750,350" class="edge edge-ext" stroke-width="2.6" marker-end="url(#a-ext)"/>
+  </g>
+  <g id="e-eng-behav">
+    <title>engagement_status reaches the engagement node</title>
+    <polyline points="1700,468 1730,468 1730,478 1750,478" class="edge edge-std" stroke-width="2.6" marker-end="url(#a-std)"/>
+  </g>
+  <g id="e-ctx-behav">
+    <title>context reaches the engagement node</title>
+    <polyline points="1700,538 1740,538 1740,505 1750,505" class="edge edge-ext" stroke-width="2.6" marker-end="url(#a-ext)"/>
+  </g>
+  <g id="e-cue-behav">
+    <title>speech_cue reaches the engagement node</title>
+    <polyline points="1700,608 1745,608 1745,532 1750,532" class="edge edge-ext" stroke-width="2.6" marker-end="url(#a-ext)"/>
+  </g>
+  <g id="e-ctx-bridge">
+    <title>context reaches the bridge</title>
+    <polyline points="1700,546 1720,546 1720,670 1750,670" class="edge edge-ext" stroke-width="2.6" marker-end="url(#a-ext)"/>
+  </g>
+  <g id="e-analyzer-out">
+    <title>one topic per channel</title>
+    <polyline points="1990,350 2060,350" class="edge edge-ros" stroke-width="2.6" marker-end="url(#a-ros)"/>
+  </g>
+  <g id="e-behav-out">
+    <title>the node names a motion, it never writes one</title>
+    <polyline points="1990,500 2060,500" class="edge edge-ros" stroke-width="2.8" marker-end="url(#a-ros)"/>
+  </g>
+  <g id="e-skills-facade">
+    <title>served by the facade</title>
+    <polyline points="2190,560 2190,600" class="edge edge-ext" stroke-width="2.6" marker-end="url(#a-ext)"/>
+  </g>
+  <g id="e-bridge-fiware">
+    <title>the bridge writes the same schema, and is off on a live robot</title>
+    <polyline points="1870,720 1870,830 960,830 960,735" class="edge edge-ros dashed" stroke-width="2.4" marker-end="url(#a-ros)"/>
+    <text x="1420" y="822" class="wire w-ros" text-anchor="middle">NGSI-LD</text>
+  </g>
+  <g id="e-facade-skill">
+    <title>the only way the graph reaches the robot</title>
+    <polyline points="2190,700 2190,790 460,790 460,575" class="edge edge-ros" stroke-width="3.2" marker-end="url(#a-ros)"/>
+    <text x="1330" y="782" class="wire w-ros" text-anchor="middle">POST /api/skill</text>
+  </g>
+  <g id="b-poka">
+    <title>Pokamind session</title>
+    <rect x="60" y="150" width="250" height="105" rx="9" class="box box-poka"/>
+    <text x="76" y="177" class="b-title">Pokamind session</text>
+    <text x="76" y="200" class="b-body"><tspan x="76" dy="0">one analysis cycle about every</tspan><tspan x="76" dy="17">2 seconds, plus one event per</tspan><tspan x="76" dy="17">sentence the robot speaks</tspan></text>
+  </g>
+  <g id="b-kiosk">
+    <title>kiosk page</title>
+    <rect x="360" y="150" width="200" height="105" rx="9" class="box box-poka"/>
+    <text x="376" y="177" class="b-title">kiosk page</text>
+    <text x="376" y="200" class="b-body"><tspan x="376" dy="0">Chromium on the robot,</tspan><tspan x="376" dy="17">no screen</tspan></text>
+  </g>
+  <g id="b-hub">
+    <title>emori-hostapp</title>
+    <rect x="610" y="150" width="280" height="105" rx="9" class="box box-host"/>
+    <text x="626" y="177" class="b-title">emori-hostapp</text>
+    <text x="626" y="200" class="b-body"><tspan x="626" dy="0">POST /api/cycle stamps the</tspan><tspan x="626" dy="17">session identity, then fans</tspan><tspan x="626" dy="17">the envelope out</tspan></text>
+  </g>
+  <g id="b-driver">
+    <title>Translator + BehaviorEngine</title>
+    <rect x="60" y="310" width="250" height="105" rx="9" class="box box-host"/>
+    <text x="76" y="337" class="b-title">Translator + BehaviorEngine</text>
+    <text x="76" y="360" class="b-body"><tspan x="76" dy="0">engagement, affect and context,</tspan><tspan x="76" dy="17">then motion intents. It also</tspan><tspan x="76" dy="17">writes the local SQLite store.</tspan></text>
+  </g>
+  <g id="b-record">
+    <title>recorder</title>
+    <rect x="360" y="310" width="200" height="105" rx="9" class="box box-host"/>
+    <text x="376" y="337" class="b-title">recorder</text>
+    <text x="376" y="360" class="b-body"><tspan x="376" dy="0">one JSONL file per session,</tspan><tspan x="376" dy="17">for deterministic replay</tspan></text>
+  </g>
+  <g id="b-relay">
+    <title>/ws/relay</title>
+    <rect x="860" y="310" width="200" height="105" rx="9" class="box box-host"/>
+    <text x="876" y="337" class="b-title">/ws/relay</text>
+    <text x="876" y="360" class="b-body"><tspan x="876" dy="0">the broadcast the ROS</tspan><tspan x="876" dy="17">graph listens to</tspan></text>
+  </g>
+  <g id="b-player">
+    <title>RobotPlayer</title>
+    <rect x="60" y="470" width="250" height="105" rx="9" class="box box-host"/>
+    <text x="76" y="497" class="b-title">RobotPlayer</text>
+    <text x="76" y="520" class="b-body"><tspan x="76" dy="0">the only queue that</tspan><tspan x="76" dy="17">moves the robot</tspan></text>
+  </g>
+  <g id="b-skill">
+    <title>POST /api/skill</title>
+    <rect x="360" y="470" width="200" height="105" rx="9" class="box box-host"/>
+    <text x="376" y="497" class="b-title">POST /api/skill</text>
+    <text x="376" y="520" class="b-body"><tspan x="376" dy="0">how the ROS graph</tspan><tspan x="376" dy="17">gets in</tspan></text>
+    <text x="376" y="563" class="b-foot">off unless a flag and key are set</text>
+  </g>
+  <g id="b-fclient">
+    <title>FiwareClient</title>
+    <rect x="610" y="470" width="200" height="105" rx="9" class="box box-host"/>
+    <text x="626" y="497" class="b-title">FiwareClient</text>
+    <text x="626" y="520" class="b-body"><tspan x="626" dy="0">writes NGSI-LD,</tspan><tspan x="626" dy="17">one row per cycle</tspan></text>
+  </g>
+  <g id="b-daemon">
+    <title>reachy-mini-daemon</title>
+    <rect x="60" y="630" width="250" height="105" rx="9" class="box box-robot"/>
+    <text x="76" y="657" class="b-title">reachy-mini-daemon</text>
+    <text x="76" y="680" class="b-body"><tspan x="76" dy="0">REST on :8000, started</tspan><tspan x="76" dy="17">with --no-media</tspan></text>
+  </g>
+  <g id="b-fiware">
+    <title>FIWARE</title>
+    <rect x="610" y="630" width="700" height="105" rx="9" class="box box-fiware"/>
+    <text x="626" y="657" class="b-title">FIWARE</text>
+    <text x="626" y="680" class="b-mono"><tspan x="626" dy="0">Orion-LD :1026   →   QuantumLeap :8668   →   TimescaleDB :5432   →   Grafana :3003</tspan></text>
+    <text x="626" y="723" class="b-foot">a broker is optional off the robot, so the SQLite store keeps the same numbers locally</text>
+  </g>
+  <g id="b-robot">
+    <title>Reachy Mini</title>
+    <rect x="60" y="790" width="250" height="105" rx="9" class="box box-robot"/>
+    <text x="76" y="817" class="b-title">Reachy Mini</text>
+    <text x="76" y="840" class="b-body"><tspan x="76" dy="0">6-DOF head, body yaw,</tspan><tspan x="76" dy="17">two antennas, speaker</tspan></text>
+  </g>
+  <g id="n-adapter">
+    <title>emori_adapter</title>
+    <rect x="1120" y="340" width="240" height="120" rx="9" class="box box-ros"/>
+    <text x="1136" y="367" class="b-title">emori_adapter</text>
+    <text x="1136" y="390" class="b-body"><tspan x="1136" dy="0">runs the same Translator</tspan><tspan x="1136" dy="17">the hostapp runs, then</tspan><tspan x="1136" dy="17">publishes the person topics</tspan></text>
+  </g>
+  <g id="t-tracked">
+    <title>/humans/persons/tracked</title>
+    <rect x="1410" y="296" width="290" height="64" rx="9" class="box box-std"/>
+    <text x="1426" y="323" class="b-title">/humans/persons/tracked</text>
+    <text x="1426" y="346" class="b-mono"><tspan x="1426" dy="0">hri_msgs/IdsList</tspan></text>
+  </g>
+  <g id="t-anon">
+    <title>.../&lt;id&gt;/anonymous</title>
+    <rect x="1410" y="366" width="290" height="64" rx="9" class="box box-std"/>
+    <text x="1426" y="393" class="b-title">.../&lt;id&gt;/anonymous</text>
+    <text x="1426" y="416" class="b-mono"><tspan x="1426" dy="0">std_msgs/Bool</tspan></text>
+  </g>
+  <g id="t-eng">
+    <title>.../&lt;id&gt;/engagement_status</title>
+    <rect x="1410" y="436" width="290" height="64" rx="9" class="box box-std"/>
+    <text x="1426" y="463" class="b-title">.../&lt;id&gt;/engagement_status</text>
+    <text x="1426" y="486" class="b-mono"><tspan x="1426" dy="0">hri_msgs/EngagementLevel</tspan></text>
+  </g>
+  <g id="t-ctx">
+    <title>.../&lt;id&gt;/context</title>
+    <rect x="1410" y="506" width="290" height="64" rx="9" class="box box-ext"/>
+    <text x="1426" y="533" class="b-title">.../&lt;id&gt;/context</text>
+    <text x="1426" y="556" class="b-mono"><tspan x="1426" dy="0">emori_msgs/Context</tspan></text>
+  </g>
+  <g id="t-cue">
+    <title>.../&lt;id&gt;/speech_cue</title>
+    <rect x="1410" y="576" width="290" height="64" rx="9" class="box box-ext"/>
+    <text x="1426" y="603" class="b-title">.../&lt;id&gt;/speech_cue</text>
+    <text x="1426" y="626" class="b-mono"><tspan x="1426" dy="0">emori_msgs/SpeechCue</tspan></text>
+  </g>
+  <g id="n-analyzer">
+    <title>hri_context_analyzer</title>
+    <rect x="1750" y="300" width="240" height="100" rx="9" class="box box-ros"/>
+    <text x="1766" y="327" class="b-title">hri_context_analyzer</text>
+    <text x="1766" y="350" class="b-body"><tspan x="1766" dy="0">splits Context into one</tspan><tspan x="1766" dy="17">topic per channel</tspan></text>
+  </g>
+  <g id="n-behav">
+    <title>hri_engagement_behaviors</title>
+    <rect x="1750" y="440" width="240" height="120" rx="9" class="box box-ros"/>
+    <text x="1766" y="467" class="b-title">hri_engagement_behaviors</text>
+    <text x="1766" y="490" class="b-body"><tspan x="1766" dy="0">decides the behaviour and</tspan><tspan x="1766" dy="17">asks for it by name. It holds</tspan><tspan x="1766" dy="17">no daemon URL.</tspan></text>
+  </g>
+  <g id="n-bridge">
+    <title>fiware_bridge</title>
+    <rect x="1750" y="620" width="240" height="100" rx="9" class="box box-ros box-dashed"/>
+    <text x="1766" y="647" class="b-title">fiware_bridge</text>
+    <text x="1766" y="670" class="b-body"><tspan x="1766" dy="0">historizes every cycle.</tspan><tspan x="1766" dy="17">Off on a live robot.</tspan></text>
+  </g>
+  <g id="d-fanout">
+    <title>.../&lt;id&gt;/context/*</title>
+    <rect x="2060" y="300" width="260" height="100" rx="9" class="box box-ext"/>
+    <text x="2076" y="327" class="b-title">.../&lt;id&gt;/context/*</text>
+    <text x="2076" y="350" class="b-body"><tspan x="2076" dy="0">20 single-purpose topics,</tspan><tspan x="2076" dy="17">plus the standard</tspan><tspan x="2076" dy="17">hri_msgs/Expression</tspan></text>
+  </g>
+  <g id="d-skills">
+    <title>the skill lane</title>
+    <rect x="2060" y="440" width="260" height="120" rx="9" class="box box-ext"/>
+    <text x="2076" y="467" class="b-title">the skill lane</text>
+    <text x="2076" y="490" class="b-mono"><tspan x="2076" dy="0">/skill/set_expression  topic</tspan><tspan x="2076" dy="16">/skill/replay_motion  action</tspan><tspan x="2076" dy="16">/skill/look_at        action</tspan></text>
+  </g>
+  <g id="n-facade">
+    <title>skill_facade</title>
+    <rect x="2060" y="600" width="260" height="100" rx="9" class="box box-ros"/>
+    <text x="2076" y="627" class="b-title">skill_facade</text>
+    <text x="2076" y="650" class="b-body"><tspan x="2076" dy="0">the only node that runs a</tspan><tspan x="2076" dy="17">request, and it goes through</tspan><tspan x="2076" dy="17">the hostapp to do it</tspan></text>
+  </g>
+  <g id="caption">
+    <rect x="36" y="930" width="2328" height="212" rx="12" fill="#fcfcfd" stroke="#e8edf3" stroke-width="1.4"/>
+    <text x="60" y="966" class="cap"><tspan x="60" dy="0">Figure 1. The EMORI adapter architecture. Blue: the Pokamind session that supplies the analysis feed, and the kiosk page that hosts it. Amber: the emori-hostapp,</tspan><tspan x="60" dy="20">which stamps the session identity onto every envelope, fans it out to three consumers, and owns the single queue that moves the robot. Violet: the ROS 2 graph,</tspan><tspan x="60" dy="20">five nodes in one container on a local DDS domain. Teal: standard REP-155 topics. Rose: the two EMORI message extensions and the bounded skill lane. Green: the</tspan><tspan x="60" dy="20">FIWARE analytics chain. Grey: the Reachy daemon and the robot itself.</tspan></text>
+    <text x="60" y="1060" class="cap"><tspan x="60" dy="0">No node in the ROS graph holds a daemon URL. The graph works out what the robot should do, and skill_facade asks for it over HTTP, so one queue keeps its ordering</tspan><tspan x="60" dy="20">and its interlocks. The ROS person namespace is the stable person_id parameter, because the robot serves one learner at a time; the real per-session identity travels</tspan><tspan x="60" dy="20">inside emori_msgs/Context. A sixth executable, pyhri_demo, is built but not launched: it reads the same topics through hri.HRIListener to show that standard ROS4HRI</tspan><tspan x="60" dy="20">tooling picks the graph up unchanged.</tspan></text>
+  </g>
+  <text x="40" y="1186" class="foot">Generated by scripts/build_emori_system_graph.py from ros2_ws/src/**, src/emori_adapter/** and deploy/**.</text>
+</svg>

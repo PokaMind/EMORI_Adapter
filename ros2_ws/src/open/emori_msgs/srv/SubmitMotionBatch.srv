@@ -1,0 +1,7 @@
+# /emori/motion/submit_batch. Hands a batch to the motion player. Refused unless the hub
+# runs with EMORI_HUB_MOTION_SUBMIT=1.
+MotionIntent[] intents
+bool drop_if_busy
+---
+bool accepted
+string error_code

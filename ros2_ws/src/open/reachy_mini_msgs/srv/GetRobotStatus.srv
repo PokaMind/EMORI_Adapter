@@ -1,0 +1,15 @@
+# The ROS form of GET /api/daemon/status, with the fields tooling reads.
+---
+string state            # running|error
+string motor_control_mode
+string error
+bool ready
+bool simulation_enabled
+bool mockup_sim_enabled
+bool no_media
+bool media_released
+bool wireless_version
+string version
+string robot_name
+string backend          # reachy_mini_ros2
+bool gaze_run           # the privacy run flag itself; motion.gaze_active is not it

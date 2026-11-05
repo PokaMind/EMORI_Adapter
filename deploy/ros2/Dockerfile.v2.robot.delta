@@ -1,0 +1,19 @@
+# A small top layer on the motor image. It builds on the robot in seconds and needs no
+# toolchain and no network, unlike Dockerfile.v2.robot, which rebuilds everything.
+# deploy/robot/ros2_native/motor-overlay.sh is what runs it, with one of two contexts:
+#   the node's own Python, as the files of reachy_mini_ros2 under install-delta/, or
+#   a compiled install tree (reachy_mini_msgs, reachy_mini_ros2, emori_msgs and the prefix
+#   scripts) that scripts/build_hub_payload.py --layers motor made against the robot's own
+#   filesystem. Both are copied over the workspace's install folder the same way.
+ARG BASE=emori/ros2-jazzy-v2:robot-base
+FROM ${BASE}
+COPY install-delta/ /emori/ros2_ws/install/
+ARG EMORI_V2_SOURCE=unknown
+LABEL org.pokamind.emori.v2-source=$EMORI_V2_SOURCE
+# Which compiled interface layer is in this image: a short hash of its files, or "none" when
+# the layer holds only the node's Python.
+ARG EMORI_V2_INTERFACES=none
+LABEL org.pokamind.emori.v2-interfaces=$EMORI_V2_INTERFACES
+# The hash of what a deploy put in this layer, which it reads back to leave a current motor alone.
+ARG EMORI_MOTOR_SOURCE=
+LABEL org.pokamind.emori.motor-source=$EMORI_MOTOR_SOURCE

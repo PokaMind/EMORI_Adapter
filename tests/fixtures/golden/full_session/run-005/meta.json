@@ -1,0 +1,18 @@
+{
+ "schema": 1,
+ "scenario": "full_session",
+ "label": "one",
+ "mode": "sim",
+ "kind": "scripted",
+ "fast": true,
+ "voiced": true,
+ "untimed": [],
+ "self_check": [
+  "play_recorded_move",
+  "set_gaze"
+ ],
+ "lang": "en",
+ "wall0": 1793691557.2289581,
+ "commit": "ccbd3c8",
+ "t0": 86080.687
+}

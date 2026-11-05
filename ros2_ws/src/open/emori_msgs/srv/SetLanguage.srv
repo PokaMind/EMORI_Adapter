@@ -1,0 +1,6 @@
+# /emori/speech/set_language. Sets the kiosk language the way the toggle gesture does.
+string lang
+---
+bool ok
+string lang
+string error_code           # unsupported_lang|busy

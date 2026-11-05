@@ -1,0 +1,23 @@
+{
+ "events": [
+  {
+   "kind": "session_started",
+   "session_id": "<sid:1>"
+  }
+ ],
+ "sessions": [
+  {
+   "avg_engagement": 0.565,
+   "cycles": 2,
+   "dominant_style": "neutral",
+   "end_reason": null,
+   "is_roleplay": 1,
+   "lang": "en",
+   "module_id": "dev-en-module-1",
+   "performance_scores": "{\"overall\": 71, \"listening\": 68}",
+   "session_id": "<sid:1>",
+   "status": "completed",
+   "topic": "Active Listening"
+  }
+ ]
+}

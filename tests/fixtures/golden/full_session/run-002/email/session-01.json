@@ -1,0 +1,14 @@
+{
+  "subject": "EMORI session report — Anna Example — <sid:1>",
+  "to": [
+"anna@example.org"
+  ],
+  "from": "",
+  "avg_engagement": 0.565,
+  "dominant_style": "neutral",
+  "summary": "That's the end of our practice. Your engagement averaged 56 percent, and you were most often neutral. Attention dipped a few times - slowing down and reflecting back can help.",
+  "performance_scores": {
+    "overall": 71,
+    "listening": 68
+  }
+}

@@ -1,0 +1,10 @@
+# /emori/session/start. The same request as the kiosk's voice choice or badge scan, with every
+# check it makes. Refused `busy` unless the robot is idle and the kiosk is on an idle landing
+# page; `no_match` unless the text chooses a topic of the menu.
+string menu_text            # as POST /api/voice-select {text}
+string badge_payload        # as {qr}; "" = anonymous
+---
+bool accepted
+string session_id           # pseudonym
+string topic
+string error_code           # busy|invalid_qr|qr_already_claimed|training_unavailable|no_match

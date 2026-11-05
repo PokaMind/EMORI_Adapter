@@ -1,0 +1,7 @@
+# Read by the hub's virtualenv at start. A line that begins with "import" is run.
+# The checkout bind-mounted at /opt/emori comes first, ahead of the older adapter copy the
+# image carries, so the hub and the tools on the host run the same code.
+import sys; sys.path.insert(0, '/opt/emori/src')
+# Packages an optional add-on installed for this interpreter, when there are any. A missing
+# directory adds nothing. An isolated interpreter (python -I) reads this file too.
+import os, site; d = '/opt/emori/hub-site/lib/python3.12/site-packages'; os.path.isdir(d) and site.addsitedir(d)

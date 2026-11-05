@@ -1,0 +1,98 @@
+# EMORI ROS 2 **v2** graph, the OFF-ROBOT / sim profile: the robot is a node in here.
+#
+# v1 (docker-compose.yml) runs an observer graph beside a Reachy daemon on the host
+# host. v2 has no daemon at all. `reachy_mini_ros2` owns Pollen's MuJoCo backend
+# in-process, and its REST compatibility shim answers the daemon dialect on :8000 --
+# which is why this file PUBLISHES 8000, and why:
+#
+#   >> THE HOST'S reachy-mini-daemon MUST NOT BE RUNNING WHEN THIS COMPOSE IS UP. <<
+#
+# Both want :8000. If the daemon wins the bind, `docker compose up` fails; if the daemon
+# is merely already there, the hostapp talks to the daemon and the whole point of v2 is
+# quietly lost. `scripts/rehearse_motion_owner.py --robot native` refuses to start unless
+# whatever answers on :8000 reports `backend: reachy_mini_ros2`, for exactly that reason.
+#
+#   docker compose -f deploy/ros2/docker-compose.v2.yml build
+#   docker compose -f deploy/ros2/docker-compose.v2.yml up
+#
+# The hostapp (the host machine, :8095) keeps REACHY_BASE_URL=http://127.0.0.1:8000 and does
+# not know anything changed. The ROS side no longer needs it: EMORI_SKILL_TRANSPORT
+# defaults to `ros_native`, which sends the facade's skills straight to the robot node's
+# actions with no HTTP hop, so EMORI_SKILL_URL is only read by the `hostapp_http`
+# transport and is kept here for a v1-style comparison run.
+services:
+  ros2v2:
+    build:
+      context: ../..
+      dockerfile: deploy/ros2/Dockerfile.v2
+    image: emori/ros2-jazzy-v2:latest
+    container_name: emori-ros2-v2
+    # Which launch file runs, as on the robot: v2.launch.py (default) is the robot node with
+    # the graph's four nodes; EMORI_MOTOR_LAUNCH=robot.launch.py is the robot node alone, for
+    # a hub with EMORI_HUB_GRAPH=1 (deploy/hub/docker-compose.hub.sim.yml). `exec`, so that
+    # ros2 launch is the process the stop signal reaches.
+    command:
+      - bash
+      - -c
+      - >-
+        launch="${EMORI_MOTOR_LAUNCH:-v2.launch.py}";
+        case "$$launch" in
+        robot.*) exec ros2 launch reachy_mini_ros2 "$$launch" ;;
+        *) exec ros2 launch emori_adapter_bringup "$$launch" ;;
+        esac
+    # The REST compatibility shim, bound to 0.0.0.0 INSIDE the container (a shim on
+    # 127.0.0.1 would be unreachable from the host however it is published) and
+    # published on the daemon's own port so nothing hostapp-side has to change.
+    ports:
+      - "8000:8000"
+    environment:
+      # Which Pollen backend the node constructs. mujoco = the simulator this profile is
+      # for; `robot` (the real serial bus) is docker-compose.v2.robot.yml's business.
+      - REACHY_BACKEND=${REACHY_BACKEND:-mujoco}
+      - REACHY_REST_PORT=${REACHY_REST_PORT:-8000}
+      # mock = standalone demo; pokamind = LIVE data from the hostapp relay.
+      - EMORI_SOURCE=${EMORI_SOURCE:-mock}
+      - EMORI_WS_URL=${EMORI_WS_URL:-ws://host.docker.internal:8095/ws/relay}
+      # The hostapp is the FIWARE writer everywhere; two writers double every KPI.
+      - EMORI_WITH_FIWARE=false
+      - FIWARE_BRIDGE_ENABLED=0
+      # Who may author expressive motion (hostapp | ros | none). Unchanged from v1 in
+      # meaning; in v2 the robot node's arbiter enforces it a second time, at the place
+      # the motion actually happens.
+      - EMORI_ROS_MOTION_OWNER=${EMORI_ROS_MOTION_OWNER:-hostapp}
+      # v2's default transport: the facade talks to /reachy_mini/goto and
+      # /reachy_mini/play_recorded_move directly. `hostapp_http` still works and is how a
+      # v1-vs-v2 comparison is run.
+      - EMORI_SKILL_TRANSPORT=${EMORI_SKILL_TRANSPORT:-ros_native}
+      - EMORI_SKILL_URL=${EMORI_SKILL_URL:-http://host.docker.internal:8096/api/skill}
+      - EMORI_SKILL_KEY=${EMORI_SKILL_KEY:-}
+      # The behaviour thresholds the engagement node runs on. Both halves matter: this
+      # names the path INSIDE the container, and the bind mount below is what puts a
+      # tuned file there.
+      - EMORI_BEHAVIOR_CONFIG=/emori/configs/behavior.yaml
+      # What leaves this graph on DDS. Pseudonymous ids by default and NO speech text:
+      # an outside ros4hri consumer on the same domain sees every topic we publish.
+      - EMORI_ROS_DEIDENTIFY=${EMORI_ROS_DEIDENTIFY:-1}
+      - EMORI_ROS_SPEECH_TEXT=${EMORI_ROS_SPEECH_TEXT:-0}
+      # Empty = a per-process random salt, so pseudonyms are not linkable across
+      # restarts. Set it only when a study needs them to be.
+      - EMORI_ROS_ID_SALT=${EMORI_ROS_ID_SALT:-}
+      - RMW_IMPLEMENTATION=rmw_fastrtps_cpp
+      # Headless MuJoCo with no GPU: EGL through Mesa's software path. The image also
+      # carries libosmesa6, so MUJOCO_GL=osmesa is a one-variable experiment if a host's
+      # EGL turns out to be broken.
+      - MUJOCO_GL=egl
+    volumes:
+      # Read-only, and a RELATIVE default: compose resolves a relative bind path against
+      # THIS file's directory (deploy/ros2/), so ../../configs/behavior.yaml is the repo's
+      # tuning file. Override with an absolute host path when rehearsing a robot's numbers.
+      - ${EMORI_ROS_BEHAVIOR_CONFIG_HOST:-../../configs/behavior.yaml}:/emori/configs/behavior.yaml:ro
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    # `ros2 launch` handles SIGINT and ignores SIGTERM, so the default stop signal makes
+    # every `down` a 10-second wait ending in SIGKILL, with no node teardown at all. The
+    # simulator has nothing to park, but a graph that is killed rather than stopped also
+    # never closes its backend, and the next `up` inherits whatever that left behind.
+    stop_signal: SIGINT
+    # To look around inside instead of running the graph:
+    #   docker compose -f deploy/ros2/docker-compose.v2.yml run --rm ros2v2 bash

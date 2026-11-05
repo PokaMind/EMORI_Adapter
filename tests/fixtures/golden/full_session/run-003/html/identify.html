@@ -1,0 +1,198 @@
+<!doctype html><html><head><meta charset=utf-8>
+<meta name=viewport content="width=device-width,initial-scale=1"><title>EMORI</title>
+<style>
+body{font-family:system-ui,sans-serif;margin:0;display:grid;place-items:center;height:100vh;background:#0f1220;color:#eef}
+.card{background:#171a2b;padding:28px 32px;border-radius:18px;box-shadow:0 10px 40px #0008;width:min(92vw,460px);text-align:center}
+h1{font-size:22px;margin:0 0 4px}p{color:#9aa;font-size:13px;margin:0 0 16px}
+video{width:100%;aspect-ratio:16/9;max-height:46vh;object-fit:contain;display:block;border-radius:12px;background:#000;transform:scaleX(-1)}
+.cam{position:relative;width:100%}
+#qrbox{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);border:2px dashed #9fd;border-radius:10px;pointer-events:none;opacity:.75}
+#qrlight{color:#778;font-size:12px;font-variant-numeric:tabular-nums;min-height:1.2em}
+#msg{margin:14px 0;color:#9fd;font-size:14px}
+button{width:100%;padding:14px;border:0;border-radius:12px;background:#2b3050;color:#fff;font-size:15px;cursor:pointer}
+.demo{margin-top:10px;font-size:11px;color:#778}
+</style>
+<script src="/static/jsqr.js"></script></head>
+<body><div class=card>
+<h1>Welcome</h1><p>Show your staff badge to the robot to start your session — or practice anonymously.</p>
+<div class=cam><video id=v autoplay muted playsinline></video><div id=qrbox></div></div>
+<div id=msg>looking for a badge…</div>
+<div id=qrlight></div>
+<button onclick=anon()>Just practice (anonymous)</button>
+<div class=demo id=demo></div></div>
+<canvas id=c hidden></canvas>
+<script>
+
+const QRCFG=(function(){
+  const q=(typeof location!=='undefined'&&location.search)?location.search:'';
+  const p=new URLSearchParams(q);
+  const num=(k,d,lo,hi)=>{const v=parseFloat(p.get(k));return (isFinite(v)&&v>=lo&&v<=hi)?v:d;};
+  return {crop:num('qrcrop',0.55,0.2,1.0), dark:num('qrdark',32,0,255),
+          lit:num('qrlit',64,0,255), ms:num('qrms',100,0,2000)};
+})();
+function qrLuma(d,i){ return (d[i]*77+d[i+1]*150+d[i+2]*29)>>8; }
+function qrStats(d){ let min=255,max=0,sum=0,n=0;
+  for(let i=0;i<d.length;i+=16){ const l=qrLuma(d,i);
+    if(l<min)min=l; if(l>max)max=l; sum+=l; n++; }
+  return {min:min,max:max,mean:n?sum/n:0,range:max-min}; }
+function qrCrop(d,w,h,frac){ const cw=Math.max(1,Math.round(w*frac)),ch=Math.max(1,Math.round(h*frac));
+  const x0=(w-cw)>>1, y0=(h-ch)>>1, out=new Uint8ClampedArray(cw*ch*4);
+  for(let y=0;y<ch;y++){ const s=((y+y0)*w+x0)*4; out.set(d.subarray(s,s+cw*4), y*cw*4); }
+  return {data:out,width:cw,height:ch}; }
+function qrHalf(d,w,h){ const w2=w>>1,h2=h>>1,out=new Uint8ClampedArray(w2*h2*4);
+  for(let y=0;y<h2;y++) for(let x=0;x<w2;x++){ let a=0;
+    for(let dy=0;dy<2;dy++) for(let dx=0;dx<2;dx++) a+=qrLuma(d,((((y<<1)+dy)*w)+((x<<1)+dx))*4);
+    const o=(y*w2+x)*4, v=a>>2; out[o]=out[o+1]=out[o+2]=v; out[o+3]=255; }
+  return {data:out,width:w2,height:h2}; }
+function qrLevels(d,lo,hi){ const hist=new Uint32Array(256); let n=0;
+  for(let i=0;i<d.length;i+=4){ hist[qrLuma(d,i)]++; n++; }
+  const at=p=>{ let c=0; for(let v=0;v<256;v++){ c+=hist[v]; if(c>=p*n) return v; } return 255; };
+  return {min:at(lo),max:at(hi)}; }
+function qrStretch(d,min,max){ const out=new Uint8ClampedArray(d.length), k=255/Math.max(1,max-min);
+  for(let i=0;i<d.length;i+=4){ const v=(qrLuma(d,i)-min)*k; out[i]=out[i+1]=out[i+2]=v; out[i+3]=255; }
+  return out; }
+// Screenless observability: the ladder reports itself to on-screen text nobody can read on
+// a headless robot, so "the badge does not scan" arrives with no evidence. Summarise each
+// second into the hostapp debug ring (type 'emori_qr' is ring-only, never journalled) and
+// send a decode immediately as its own event. `tried` is what the ladder actually ran, so
+// a pass that never gets a turn is visible; mean/range say whether the frame is even usable.
+// Publish the frame the DECODER was handed (same canvas, after drawImage), so "what does
+// it see" can be answered without stopping the kiosk to free the camera. Gated server-side
+// (403 -> stop trying), memory-only there, and rate-limited to one frame every 3 s.
+let qrShotAt=0, qrShotOff=false;
+function qrShot(cv,st){
+  if(qrShotOff) return;
+  const now=(typeof performance!=='undefined')?performance.now():0;
+  // 1.2s while scanning: this channel is now the SECOND DECODER, not just debug.
+  // zxing-cpp server-side reads hand-held phone badges (small, angled, daylight) that
+  // jsQR in this page cannot.
+  if(now-qrShotAt<1200) return;
+  qrShotAt=now;
+  try{ cv.toBlob(b=>{ if(!b) return;
+    fetch('/api/qr-frame',{method:'POST',body:b})
+      .then(r=>{ if(r.status===403){ qrShotOff=true; return null; } return r.json(); })
+      .then(d=>{ if(d&&d.decoded&&phase==='scan'&&!navigating){
+        // The SAME badge telemetry the in-page ladder emits. Without it a server-side
+        // decode left no trace at all, so "the robot reacted but nothing scanned" had
+        // no evidence anywhere - and which of the two readers actually read the badge
+        // is the first thing worth knowing when a scan goes wrong. The frame stats are
+        // the ones THIS page measured on the frame it uploaded.
+        qrTel({pass:'zxing',mean:(st&&st.mean)||0,range:(st&&st.range)||0,ms:0},true);
+        onBadge(d.decoded); } })
+      .catch(()=>{}); },
+    'image/jpeg', 0.7); }catch(e){ qrShotOff=true; }
+}
+// A scan the SERVER refused (unregistered badge, a lease another card already holds, a
+// add-on that cannot hand over) is otherwise completely invisible: the ladder simply
+// keeps scanning while the person keeps holding a badge at a robot that has already said
+// no. Never the payload - only the server's own content-free error code, which is what
+// the opaque 409 body carries (roster-enumeration stance, server.py).
+let msgHold=0;
+function qrReject(code,text){
+  // The scan loop rewrites `msg` on EVERY tick (~10/s), so a bare assignment here is
+  // gone before anyone reads it. Hold the line for four seconds; both scan loops and
+  // the /identify hand-back honour the latch.
+  msgHold=Date.now()+4000;
+  try{ msg.textContent=text; }catch(e){}
+  try{ fetch('/api/emori-debug',{method:'POST',headers:{'content-type':'application/json'},
+    body:JSON.stringify({type:'emori_qr_reject',code:code||'unknown'})}); }catch(e){}
+  // The reviewed cue is a short content-free tone and 404s unless a deployment turned
+  // it on (EMORI_UNREGISTERED_BADGE_FEEDBACK); where it IS on, it is the only channel a
+  // screenless kiosk has for "that badge did nothing".
+  try{ const cue=new Audio('/api/badge-cue'); cueOpen=true;
+    cue.onended=cue.onerror=()=>{ cueOpen=false; };
+    cue.play().catch(()=>{ cueOpen=false; }); }catch(e){ cueOpen=false; }
+}
+let qrAcc=null;
+function qrTel(r,decoded){
+  const now=(typeof performance!=='undefined')?performance.now():0;
+  if(decoded){ try{ navigator.sendBeacon('/api/emori-debug', new Blob([JSON.stringify(
+      {type:'emori_qr_badge',pass:r.pass,mean:Math.round(r.mean),range:r.range,ms:Math.round(r.ms)})],
+      {type:'application/json'})); }catch(e){} return; }
+  if(!qrAcc) qrAcc={t0:now,ticks:0,mean:0,range:0,ms:0,tried:{}};
+  qrAcc.ticks++; qrAcc.mean+=r.mean; qrAcc.range+=r.range; qrAcc.ms+=r.ms;
+  qrAcc.tried[r.pass]=(qrAcc.tried[r.pass]||0)+1;
+  if(now-qrAcc.t0<1000) return;
+  const n=Math.max(1,qrAcc.ticks);
+  const body={type:'emori_qr',ticks:qrAcc.ticks,mean:Math.round(qrAcc.mean/n),
+              range:Math.round(qrAcc.range/n),ms:Math.round(qrAcc.ms/n),tried:qrAcc.tried,
+              cam:(v&&v.videoWidth)?(v.videoWidth+'x'+v.videoHeight):'none'};
+  qrAcc=null;
+  try{ navigator.sendBeacon('/api/emori-debug', new Blob([JSON.stringify(body)],
+      {type:'application/json'})); }catch(e){}
+}
+function qrLadder(data,w,h,pass){
+  const t0=(typeof performance!=='undefined')?performance.now():0;
+  const c=qrCrop(data,w,h,QRCFG.crop), st=qrStats(c.data);
+  const opt={inversionAttempts:'attemptBoth'};
+  const lit=st.range>=QRCFG.lit;
+  let code=null, name='';
+  // Cost, measured on the CM4 from the scan telemetry: a FULL-RES whole-frame
+  // decode ~1.5 s, the centre crop ~650 ms. The old ladder spent three ticks in four on the
+  // full-res whole frame, so the loop managed ~2 looks a second and the centre crop -- the
+  // pass that catches a badge held up close -- got a turn only every ~2 s.
+  //
+  // The two coverage gaps are different: the crop is full-res but only the middle 55%, and
+  // a presented badge is often outside it (on the robot one sat entirely above the crop). So
+  // keep both, and pay for the whole frame at HALF resolution -- a quarter of the pixels,
+  // the same field of view. Small or distant codes still have the full-res crop; off-centre
+  // codes now get looked at every cycle instead of every fourth one.
+  const whole=()=>{ const hf=qrHalf(data,w,h); return jsQR(hf.data,hf.width,hf.height,opt); };
+  if(pass===0){ name='crop'; code=jsQR(c.data,c.width,c.height,opt); }
+  else if(pass===1){ if(lit){ name='full/2'; code=whole(); }
+    else { name='crop/2+levels'; const hf=qrHalf(c.data,c.width,c.height);
+      const lv=qrLevels(hf.data,0.02,0.98);
+      code=jsQR(qrStretch(hf.data,lv.min,lv.max),hf.width,hf.height,opt); } }
+  else if(pass===2){ if(lit){ name='crop'; code=jsQR(c.data,c.width,c.height,opt); }
+    else { name='crop+stretch';
+      code=jsQR(qrStretch(c.data,st.min,st.max),c.width,c.height,opt); } }
+  else { name='full/2'; code=whole(); }
+  const t1=(typeof performance!=='undefined')?performance.now():0;
+  return {data:(code&&code.data)?code.data:'', pass:name,
+          mean:st.mean, range:st.range, dark:st.range<QRCFG.dark, ms:t1-t0}; }
+
+const demo=true; const v=document.getElementById('v'),c=document.getElementById('c'),ctx=c.getContext('2d'),msg=document.getElementById('msg');
+let done=false,lastQr='',lastQrAt=0;
+if(demo){document.getElementById('demo').textContent='DEMO mode: synthetic session (no real Pokamind).'}
+async function start(){
+  try{ v.srcObject=await navigator.mediaDevices.getUserMedia({video:{facingMode:'user',width:{ideal:1280},height:{ideal:720}},audio:false}); requestAnimationFrame(scan); }
+  catch(e){ msg.textContent='camera unavailable — tap Just practice'; }
+}
+const qrbox=document.getElementById('qrbox'), qrlight=document.getElementById('qrlight');
+qrbox.style.width=qrbox.style.height=(QRCFG.crop*100).toFixed(0)+'%';
+let qrPass=0;
+function scan(){ if(done) return;
+  if(v.readyState===v.HAVE_ENOUGH_DATA && v.videoWidth){
+    c.width=v.videoWidth; c.height=v.videoHeight; ctx.drawImage(v,0,0,c.width,c.height);
+    const r=qrLadder(ctx.getImageData(0,0,c.width,c.height).data,c.width,c.height,qrPass);
+    qrPass=(qrPass+1)%4;
+    qrlight.textContent='light '+Math.round(r.mean*100/255)+'% · '+r.range+' · '+r.pass+' '+Math.round(r.ms)+'ms';
+    if(Date.now()>msgHold) msg.textContent=r.dark?'too dark — add light, or tap Just practice':'hold the badge in the box';
+    if(r.data){ identify(r.data); return; } }
+  setTimeout(()=>requestAnimationFrame(scan), QRCFG.ms); }
+async function priorityQr(qr){ const now=Date.now();
+  if(qr===lastQr && now-lastQrAt<3000) return false;
+  lastQr=qr; lastQrAt=now;
+  try{ const r=await fetch('/api/badge/claim',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({payload:qr})});
+    if(r.status===202) return true;
+    let code=''; try{ code=((await r.json())||{}).error_code||''; }catch(_e){}
+    qrReject(code||('http_'+r.status), 'badge not accepted — try again, or tap Just practice');
+    return false; }
+  catch(e){ qrReject('unreachable','badge not accepted — try again, or tap Just practice');
+    return false; } }
+async function identify(qr){ if(done) return; done=true;
+  if(qr && !(await priorityQr(qr))){ done=false;
+    if(Date.now()>msgHold) msg.textContent='looking for a badge';
+    requestAnimationFrame(scan); return; }
+  msg.textContent='starting';
+  try{ const r=await fetch('/api/identify',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({qr})});
+    if(!r.ok) throw new Error('identify'); const d=await r.json(); msg.textContent=d.anonymous?'anonymous session - starting':('hello '+(d.name||'')+' - starting');
+    // Badge-direct start: any greeting/announcement still playing would carry into the
+    // session's own opening TTS (the overlap beginSession's go() already prevents on the
+    // menu path). Same rule here: silence this page before handing the speaker over.
+    if(typeof stopSpeech==='function') stopSpeech();
+    location.href=d.session_url; }
+  catch(e){ done=false; msg.textContent='looking for a badge'; requestAnimationFrame(scan); } }
+function anon(){ identify(''); }
+start();
+</script></body></html>

@@ -1,0 +1,11 @@
+# Take or release the exclusive motion owner lock.
+#
+# While a client holds the lock, every request from any OTHER client is refused
+# `not_owner` unless it is on the safety lane - safety outranks ownership, because a
+# calm-settle is not an expression. The lock carries a TTL so a client that dies with
+# the lock held does not leave the robot permanently deaf; renew it by asking again.
+string client      # "" = release (only the holder may release)
+float32 ttl_s      # seconds before the lock expires on its own
+---
+bool ok
+string owner       # the holder after the call, "" when free

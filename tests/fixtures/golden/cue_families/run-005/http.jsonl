@@ -1,0 +1,20 @@
+{"body": {"anonymous": false, "demo": true, "name": "", "session_url": "/session?demo=1&sid=<sid:1>"}, "content_type": "application/json", "latency_s": 0.0, "method": "POST", "route": "/api/start", "status": 200, "t": 86498.234}
+{"body": "<html:session>", "content_type": "text/html", "latency_s": 0.0, "method": "GET", "route": "/session", "status": 200, "t": 86498.234}
+{"body": {"ok": true}, "content_type": "application/json", "latency_s": 0.0, "method": "POST", "route": "/api/frame-alive", "status": 200, "t": 86498.375}
+{"body": {"level": "ENGAGING", "n": 1, "ok": true, "reasons": ["perk up (engaging)", "lean in"]}, "content_type": "application/json", "latency_s": 0.031000000002677552, "method": "POST", "route": "/api/cycle", "status": 200, "t": 86505.89}
+{"body": {"level": "ENGAGING", "n": 2, "ok": true, "reasons": ["perk up (engaging)", "lean in"]}, "content_type": "application/json", "latency_s": 0.0, "method": "POST", "route": "/api/cycle", "status": 200, "t": 86505.921}
+{"body": {"beats": 2, "n": 1, "ok": true, "spoke": true}, "content_type": "application/json", "latency_s": 0.0, "method": "POST", "route": "/api/cycle", "status": 200, "t": 86509.421}
+{"body": {"ok": true}, "content_type": "application/json", "latency_s": 0.0, "method": "POST", "route": "/api/cycle", "status": 200, "t": 86511.078}
+{"body": {"beats": 2, "n": 2, "ok": true, "spoke": true}, "content_type": "application/json", "latency_s": 0.0, "method": "POST", "route": "/api/cycle", "status": 200, "t": 86512.031}
+{"body": {"ok": true}, "content_type": "application/json", "latency_s": 0.0, "method": "POST", "route": "/api/cycle", "status": 200, "t": 86513.718}
+{"body": {"beats": 2, "n": 3, "ok": true, "spoke": true}, "content_type": "application/json", "latency_s": 0.0, "method": "POST", "route": "/api/cycle", "status": 200, "t": 86514.656}
+{"body": {"ok": true}, "content_type": "application/json", "latency_s": 0.0, "method": "POST", "route": "/api/cycle", "status": 200, "t": 86516.578}
+{"body": {"beats": 2, "n": 4, "ok": true, "spoke": true}, "content_type": "application/json", "latency_s": 0.0, "method": "POST", "route": "/api/cycle", "status": 200, "t": 86517.531}
+{"body": {"ok": true}, "content_type": "application/json", "latency_s": 0.0, "method": "POST", "route": "/api/cycle", "status": 200, "t": 86519.453}
+{"body": {"beats": 2, "n": 5, "ok": true, "spoke": true}, "content_type": "application/json", "latency_s": 0.0, "method": "POST", "route": "/api/cycle", "status": 200, "t": 86520.39}
+{"body": {"level": "ENGAGING", "n": 3, "ok": true, "reasons": ["perk up (engaging)", "lean in"]}, "content_type": "application/json", "latency_s": 0.01600000000325963, "method": "POST", "route": "/api/cycle", "status": 200, "t": 86520.921}
+{"body": {"ok": true}, "content_type": "application/json", "latency_s": 0.0, "method": "POST", "route": "/api/cycle", "status": 200, "t": 86522.546}
+{"body": {"beats": 2, "n": 6, "ok": true, "spoke": true}, "content_type": "application/json", "latency_s": 0.0, "method": "POST", "route": "/api/cycle", "status": 200, "t": 86523.5}
+{"body": {"ok": true}, "content_type": "application/json", "latency_s": 0.01600000000325963, "method": "POST", "route": "/api/cycle", "status": 200, "t": 86525.64}
+{"body": {"avg_engagement": 0.565, "completed": true, "dominant_style": "neutral", "next_url": "/", "ok": true, "summary": "That's the end of our practice. Your engagement averaged 56 percent, and you were most often neutral. Attention dipped a few times - slowing down and reflecting back can help.", "summary_tts_url": "/api/tts?lang=en&text=That%27s%20the%20end%20of%20our%20practice.%20Your%20engagement%20averaged%2056%20percent%2C%20and%20you%20were%20most%20often%20neutral.%20Attention%20dipped%20a%20few%20times%20-%20slowing%20down%20and%20reflecting%20back%20can%20help."}, "content_type": "application/json", "latency_s": 0.0, "method": "POST", "route": "/api/cycle", "status": 200, "t": 86525.656}
+{"body": "<html:landing_after>", "content_type": "text/html", "latency_s": 0.0, "method": "GET", "route": "/", "status": 200, "t": 86525.656}

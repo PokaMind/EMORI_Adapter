@@ -1,0 +1,66 @@
+{"pid": 28236, "s": "meta", "schema": 1, "t": "<time>", "wall": "<time>"}
+{"n": 2, "plan": 0, "s": "pickup", "speech": false, "t": "<time>", "voice": false}
+{"accepted": true, "d": 3.5, "i": 0, "kind": "play_recorded", "move": "welcoming1", "ms": 0, "plan": 0, "reason": "greeting (session start) (recorded welcoming1)", "s": "apply", "t": "<time>"}
+{"d": 0.4, "i": 1, "kind": "goto", "ms": 0, "plan": 0, "reason": "greeting (session start) (settle)", "s": "apply", "t": "<time>"}
+{"i": 2, "moved": true, "n": 2, "outcome": "finished", "plan": 0, "revoked": false, "s": "batch_end", "skip_reason": "", "sustain": 0, "t": "<time>", "voice_seen": false}
+{"n": 1, "plan": 0, "s": "pickup", "speech": false, "t": "<time>", "voice": false}
+{"d": 0.6, "i": 0, "kind": "goto", "ms": 0, "plan": 0, "reason": "look up at the person (session start)", "s": "apply", "t": "<time>"}
+{"i": 1, "moved": true, "n": 1, "outcome": "finished", "plan": 0, "revoked": false, "s": "batch_end", "skip_reason": "", "sustain": 0, "t": "<time>", "voice_seen": false}
+{"action": "submitted", "s": "engagement", "t": "<time>"}
+{"n": 2, "plan": 0, "s": "pickup", "speech": false, "t": "<time>", "voice": false}
+{"d": 0.4, "i": 0, "kind": "antennas", "ms": 0, "plan": 0, "reason": "perk up (engaging)", "s": "apply", "t": "<time>"}
+{"action": "submitted", "s": "engagement", "t": "<time>"}
+{"d": 0.55, "i": 1, "kind": "goto", "ms": 0, "plan": 0, "reason": "lean in", "s": "apply", "t": "<time>"}
+{"i": 2, "moved": true, "n": 2, "outcome": "finished", "plan": 0, "revoked": false, "s": "batch_end", "skip_reason": "", "sustain": 0, "t": "<time>", "voice_seen": false}
+{"n": 2, "plan": 0, "s": "pickup", "speech": false, "t": "<time>", "voice": false}
+{"d": 0.4, "i": 0, "kind": "antennas", "ms": 0, "plan": 0, "reason": "perk up (engaging)", "s": "apply", "t": "<time>"}
+{"d": 0.55, "i": 1, "kind": "goto", "ms": 0, "plan": 0, "reason": "lean in", "s": "apply", "t": "<time>"}
+{"i": 2, "moved": true, "n": 2, "outcome": "finished", "plan": 0, "revoked": false, "s": "batch_end", "skip_reason": "", "sustain": 0, "t": "<time>", "voice_seen": false}
+{"authored": "", "budget": 3.33, "chars": 59, "family_source": "", "intents": 8, "performed": "", "plan": 1, "planned": true, "recorded": "", "s": "sentence", "seq": 35, "slug": "talking/sway/b-5", "t": "<time>"}
+{"n": 8, "plan": 1, "s": "pickup", "speech": true, "t": "<time>", "voice": true}
+{"bind": "continued", "i": 0, "plan": 1, "s": "voice_seen", "t": "<time>"}
+{"d": 0.435, "i": 0, "kind": "goto", "ms": 0, "plan": 1, "reason": "speaking (AI turn)", "s": "apply", "t": "<time>"}
+{"d": 0.435, "i": 1, "kind": "goto", "ms": 0, "plan": 1, "reason": "speaking (AI turn)", "s": "apply", "t": "<time>"}
+{"d": 0.435, "i": 2, "kind": "goto", "ms": 0, "plan": 1, "reason": "speaking (AI turn)", "s": "apply", "t": "<time>"}
+{"d": 0.435, "i": 3, "kind": "goto", "ms": 0, "plan": 1, "reason": "speaking (AI turn)", "s": "apply", "t": "<time>"}
+{"d": 0.435, "i": 4, "kind": "goto", "ms": 0, "plan": 1, "reason": "speaking (AI turn)", "s": "apply", "t": "<time>"}
+{"s": "tts_ended", "settle": true, "t": "<time>"}
+{"i": 4, "moved": true, "n": 8, "outcome": "preempted", "plan": 1, "revoked": true, "s": "batch_end", "skip_reason": "", "sustain": 0, "t": "<time>", "voice_seen": true}
+{"n": 1, "plan": 0, "s": "pickup", "speech": false, "t": "<time>", "voice": false}
+{"d": 0.3, "i": 0, "kind": "goto", "ms": 0, "plan": 0, "reason": "cue settle (AI finished speaking)", "s": "apply", "t": "<time>"}
+{"i": 1, "moved": true, "n": 1, "outcome": "finished", "plan": 0, "revoked": false, "s": "batch_end", "skip_reason": "", "sustain": 0, "t": "<time>", "voice_seen": false}
+{"authored": "tension", "budget": 3.7, "chars": 48, "family_source": "pokamind", "intents": 2, "performed": "tension", "plan": 2, "planned": true, "recorded": "displeased1", "s": "sentence", "seq": 43, "slug": "tension/neutral/rec-displeased1", "t": "<time>"}
+{"n": 2, "plan": 2, "s": "pickup", "speech": true, "t": "<time>", "voice": true}
+{"bind": "continued", "i": 0, "plan": 2, "s": "voice_seen", "t": "<time>"}
+{"accepted": true, "d": 3.4, "i": 0, "kind": "play_recorded", "move": "displeased1", "ms": 0, "plan": 2, "reason": "cue tension (recorded displeased1)", "s": "apply", "t": "<time>"}
+{"s": "tts_ended", "settle": true, "t": "<time>"}
+{"by": "preempt", "plan": 2, "s": "recorded_cut", "t": "<time>", "waited": 1.55}
+{"i": 0, "moved": true, "n": 2, "outcome": "preempted", "plan": 2, "revoked": true, "s": "batch_end", "skip_reason": "", "sustain": 0, "t": "<time>", "voice_seen": true}
+{"n": 1, "plan": 0, "s": "pickup", "speech": false, "t": "<time>", "voice": false}
+{"d": 0.3, "i": 0, "kind": "goto", "ms": 0, "plan": 0, "reason": "cue settle (AI finished speaking)", "s": "apply", "t": "<time>"}
+{"i": 1, "moved": true, "n": 1, "outcome": "finished", "plan": 0, "revoked": false, "s": "batch_end", "skip_reason": "", "sustain": 0, "t": "<time>", "voice_seen": false}
+{"n": 1, "plan": 0, "s": "pickup", "speech": false, "t": "<time>", "voice": false}
+{"d": 0.4, "i": 0, "kind": "goto", "ms": 0, "plan": 0, "reason": "your turn (mic armed)", "s": "apply", "t": "<time>"}
+{"i": 1, "moved": true, "n": 1, "outcome": "finished", "plan": 0, "revoked": false, "s": "batch_end", "skip_reason": "", "sustain": 0, "t": "<time>", "voice_seen": false}
+{"n": 2, "plan": 0, "s": "pickup", "speech": false, "t": "<time>", "voice": false}
+{"d": 0.22, "i": 0, "kind": "goto", "ms": 0, "plan": 0, "reason": "heard you (turn submitted)", "s": "apply", "t": "<time>"}
+{"d": 0.5, "i": 1, "kind": "goto", "ms": 0, "plan": 0, "reason": "heard you (turn submitted) (considering)", "s": "apply", "t": "<time>"}
+{"i": 2, "moved": true, "n": 2, "outcome": "finished", "plan": 0, "revoked": false, "s": "batch_end", "skip_reason": "", "sustain": 0, "t": "<time>", "voice_seen": false}
+{"authored": "", "budget": 3.66, "chars": 56, "family_source": "", "intents": 7, "performed": "", "plan": 3, "planned": true, "recorded": "", "s": "sentence", "seq": 36, "slug": "talking/list_three/c+7", "t": "<time>"}
+{"n": 7, "plan": 3, "s": "pickup", "speech": true, "t": "<time>", "voice": true}
+{"bind": "continued", "i": 0, "plan": 3, "s": "voice_seen", "t": "<time>"}
+{"d": 0.272, "i": 0, "kind": "goto", "ms": 0, "plan": 3, "reason": "speaking (AI turn)", "s": "apply", "t": "<time>"}
+{"d": 0.221, "i": 1, "kind": "goto", "ms": 0, "plan": 3, "reason": "speaking (AI turn) (lift)", "s": "apply", "t": "<time>"}
+{"d": 0.272, "i": 2, "kind": "goto", "ms": 0, "plan": 3, "reason": "speaking (AI turn)", "s": "apply", "t": "<time>"}
+{"d": 0.221, "i": 3, "kind": "goto", "ms": 0, "plan": 3, "reason": "speaking (AI turn) (lift)", "s": "apply", "t": "<time>"}
+{"d": 0.272, "i": 4, "kind": "goto", "ms": 0, "plan": 3, "reason": "speaking (AI turn)", "s": "apply", "t": "<time>"}
+{"s": "tts_ended", "settle": true, "t": "<time>"}
+{"i": 4, "moved": true, "n": 7, "outcome": "preempted", "plan": 3, "revoked": true, "s": "batch_end", "skip_reason": "", "sustain": 0, "t": "<time>", "voice_seen": true}
+{"n": 1, "plan": 0, "s": "pickup", "speech": false, "t": "<time>", "voice": false}
+{"d": 0.3, "i": 0, "kind": "goto", "ms": 0, "plan": 0, "reason": "cue settle (AI finished speaking)", "s": "apply", "t": "<time>"}
+{"i": 1, "moved": true, "n": 1, "outcome": "finished", "plan": 0, "revoked": false, "s": "batch_end", "skip_reason": "", "sustain": 0, "t": "<time>", "voice_seen": false}
+{"authored": "levity", "budget": 4.9, "chars": 63, "family_source": "pokamind", "intents": 2, "performed": "levity", "plan": 4, "planned": true, "recorded": "laughing1", "s": "sentence", "seq": 45, "slug": "levity/neutral/rec-laughing1", "t": "<time>"}
+{"n": 2, "plan": 4, "s": "pickup", "speech": true, "t": "<time>", "voice": true}
+{"bind": "continued", "i": 0, "plan": 4, "s": "voice_seen", "t": "<time>"}
+{"accepted": true, "d": 4.6, "i": 0, "kind": "play_recorded", "move": "laughing1", "ms": 0, "plan": 4, "reason": "cue levity (recorded laughing1)", "s": "apply", "t": "<time>"}
+{"s": "tts_ended", "settle": true, "t": "<time>"}

@@ -1,0 +1,67 @@
+# EMORI ROS 2 container (slice2.launch.py), the OFF-ROBOT / sim file. All five nodes run inside
+# this one container, so their DDS graph stays local; the container reaches the
+# hostapp on the host machine and Orion-LD via host.docker.internal.
+# The on-robot file is deploy/ros2/docker-compose.robot.yml.
+#
+#   docker compose -f deploy/ros2/docker-compose.yml build
+#   docker compose -f deploy/ros2/docker-compose.yml up
+#
+# Prereqs on the host machine:
+#   * Reachy sim:  reachy-mini-daemon --sim --fastapi-host 0.0.0.0 --no-localhost-only
+#   * hostapp:     python -m emori_adapter.hostapp.server   (drives the sim; EMORI_SKILL_API=1
+#                  + EMORI_SKILL_KEY if you want EMORI_ROS_MOTION_OWNER=ros to move anything)
+#   * FIWARE:      docker compose -f deploy/fiware/docker-compose.yml up -d
+services:
+  ros2:
+    build:
+      context: ../..
+      dockerfile: deploy/ros2/Dockerfile
+    image: emori/ros2-humble:latest
+    container_name: emori-ros2
+    environment:
+      # mock = standalone demo; pokamind = LIVE data from the hostapp relay.
+      - EMORI_SOURCE=${EMORI_SOURCE:-mock}
+      - EMORI_WS_URL=${EMORI_WS_URL:-ws://host.docker.internal:8080/ws/relay}
+      # On the live stack the hostapp already historizes every cycle to FIWARE —
+      # disable the bridge writer there to avoid double rows:
+      - EMORI_WITH_FIWARE=${EMORI_WITH_FIWARE:-true}
+      - FIWARE_BRIDGE_ENABLED=${FIWARE_BRIDGE_ENABLED:-1}
+      # No node holds a daemon URL: motion leaves this graph ONLY as a skill request
+      # POSTed to the hostapp's single-writer intake by skill_facade. Whether it is
+      # posted at all is this one knob (hostapp | ros | none); `hostapp` computes and
+      # publishes everything and sends nothing, which is the zero-risk first run.
+      - EMORI_ROS_MOTION_OWNER=${EMORI_ROS_MOTION_OWNER:-hostapp}
+      - EMORI_SKILL_URL=${EMORI_SKILL_URL:-http://host.docker.internal:8080/api/skill}
+      - EMORI_SKILL_KEY=${EMORI_SKILL_KEY:-}
+      # Which transport the facade posts through (emori_skill_facade/transport.py):
+      # hostapp_http is the real one; `log` accepts everything and records the bodies,
+      # which is how the standalone image smoke-tests the node with no hostapp at all.
+      - EMORI_SKILL_TRANSPORT=${EMORI_SKILL_TRANSPORT:-hostapp_http}
+      # The behaviour thresholds the engagement node runs on. Both halves matter: this
+      # names the path INSIDE the container, and the bind mount below is what puts a
+      # tuned file there. Without them the node logs `source=defaults` and a robot's
+      # bisected escalation threshold is silently not in force.
+      - EMORI_BEHAVIOR_CONFIG=/emori/configs/behavior.yaml
+      # What leaves this graph on DDS. Pseudonymous ids by default and NO speech text,
+      # because an outside ros4hri consumer on the same domain sees every topic we
+      # publish; the behaviour lane only ever needed cue_category/est_duration.
+      - EMORI_ROS_DEIDENTIFY=${EMORI_ROS_DEIDENTIFY:-1}
+      - EMORI_ROS_SPEECH_TEXT=${EMORI_ROS_SPEECH_TEXT:-0}
+      # Empty = a per-process random salt, so pseudonyms are not linkable across
+      # restarts. Set it only when a study needs them to be.
+      - EMORI_ROS_ID_SALT=${EMORI_ROS_ID_SALT:-}
+      - ORION_URL=http://host.docker.internal:1026
+      # Orion (on the emori-fiware network) reaches QuantumLeap by service name:
+      - QL_NOTIFY_URL=http://quantumleap:8668/v2/notify
+      - NGSILD_TENANT=pokamind
+      - RMW_IMPLEMENTATION=rmw_fastrtps_cpp
+    volumes:
+      # Read-only, and a RELATIVE default: compose resolves a relative bind path
+      # against THIS file's directory (deploy/ros2/), so ../../configs/behavior.yaml is
+      # the repo's tuning file. Override with an absolute host path when rehearsing a
+      # robot's own numbers.
+      - ${EMORI_ROS_BEHAVIOR_CONFIG_HOST:-../../configs/behavior.yaml}:/emori/configs/behavior.yaml:ro
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    # default CMD (slice2.launch.py); override e.g. with:
+    #   docker compose ... run --rm ros2 bash

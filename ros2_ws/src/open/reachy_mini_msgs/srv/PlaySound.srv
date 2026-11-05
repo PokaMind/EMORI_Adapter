@@ -1,0 +1,4 @@
+# Inert: accepted and ignored, as the REST route is.
+string file
+---
+bool ok

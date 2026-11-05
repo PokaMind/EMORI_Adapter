@@ -1,0 +1,435 @@
+<!doctype html><html><head><meta charset=utf-8>
+<meta name=viewport content="width=device-width,initial-scale=1"><title>EMORI session</title>
+<style>html,body{margin:0;height:100%;background:#000}iframe{border:0;width:100vw;height:100vh}
+#status{position:fixed;bottom:8px;left:8px;font:12px system-ui;color:#6f6;background:#0008;padding:4px 8px;border-radius:8px}</style>
+</head><body><div id=status>connecting…</div><div id=stage></div>
+<script>
+
+const LANG="en", S={"show_badge": "👋 Show your badge to begin", "which_session": "🎙️ Which session?", "looking": "looking for a badge…", "cam_unavailable": "camera unavailable — tap a topic or practice anonymously", "anon_button": "practice anonymously", "didnt_catch": "Sorry, I didn't catch that.", "choose": "Please choose a topic.", "starting": "Starting", "heard": "heard", "welcome": "Welcome.", "hello": "Hello", "say_numbers": "Say one, two, or three.", "hold_badge": "Hold the badge inside the box", "too_dark": "Too dark to read the badge — add light, or just say one, two, or three", "light_label": "light", "voice_unavailable": "Voice not available — tap a topic below.", "mic_constrained": "Microphone can't be set up safely — tap a topic below.", "menu_giving_up": "I didn't catch a topic. Show your badge again, or tap a topic below.", "session_over": "Session complete. Thank you!", "badge_refused": "That badge did not start a session. Please try again.", "session_start_failed": "Sorry, the session did not start. Please show your badge again.", "demo_note": "DEMO mode: synthetic session (no real Pokamind)."};
+const LANG_BCP={en:'en-US',ca:'ca-ES'}[LANG]||'en-US';
+// Every Audio say() creates is tracked so a page can SILENCE it. The robot voice is a
+// Piper WAV in an <audio> element, and a page that navigates away does not reliably stop
+// one that is mid-playback: the landing page's "Starting <topic>" line (~4.4 s) could
+// still be talking over Pokamind's own opening line on the robot's SINGLE speaker.
+// speechSynthesis.cancel() alone never fixed that - it only stops the browser-TTS fallback branch,
+// not the WAV.
+let __sayAudio=[];
+// Silencing a say() that has not produced sound YET takes more than stopSpeech, which only
+// pauses <audio> elements that already exist, and the /api/tts fetch behind an unstarted
+// line keeps running -- its .then would then open a NEW <audio> and start talking AFTER
+// the page asked for silence. Harmless while every stopSpeech() was immediately followed
+// by a navigation (the document died first); NOT harmless for the session page, which
+// silences its covering line and STAYS. So stopSpeech bumps a generation and say()
+// captures it: a request whose generation has moved on produces no sound at all. The
+// caller's callback is unaffected -- it still arrives from say()'s own arm() deadline, so
+// every state machine that only advances in that callback advances exactly as before.
+let __sayGen=0;
+// How many lines are between say() and their callback, so a page can tell it is speaking.
+let __sayOpen=0;
+function stopSpeech(){
+  __sayGen++;
+  const live=__sayAudio; __sayAudio=[];
+  live.forEach(a=>{ try{ a.onended=null; a.onerror=null; a.onloadedmetadata=null; a.pause();
+    const src=a.src; a.removeAttribute('src'); a.load();
+    if(src&&src.indexOf('blob:')===0) URL.revokeObjectURL(src); }catch(e){} });
+  try{ speechSynthesis.cancel(); }catch(e){}
+}
+// Upper bound on how long `text` can take to speak. Used ONLY as the "say() never called
+// back at all" fail-safe: 95 ms/char is ~1.4x the measured Piper ca/en delivery rate, and
+// the 5 s floor covers short lines where fixed synthesis + blob load dominates. Callers
+// that must not navigate over an announcement derive THEIR deadline from this same
+// function so theirs can never fire first.
+function sayMaxMs(text){ return Math.max(5000,(text||'').length*95); }
+// `onstart` (optional) fires when this line becomes AUDIBLE -- the <audio> actually
+// playing, or the browser-TTS fallback actually starting. A caller that must decide
+// whether cutting the line would clip a word cannot use the call time for that: the
+// /api/tts round-trip and Piper synthesis sit between the two, and on the CM4 that is
+// hundreds of ms. Nothing else changes for callers that pass one or two arguments.
+function say(text,cb,onstart){
+  // Registered against the CURRENT silence generation: a stopSpeech() between here and
+  // the fetch resolving means this line never opens a mouth (see stopSpeech above).
+  const gen=__sayGen;
+  const began=()=>{ try{ onstart&&onstart(); }catch(e){} };
+  // The completion latch is SHARED with the fetch handlers below (fin.done), not
+  // private to the timer: whoever gets there first ends this say(), and the losers
+  // must produce no sound at all. A .then that opened an <audio> after the caller
+  // had already advanced would be talking over whatever state came next - on the
+  // landing page, over the microphone listen() just opened.
+  __sayOpen++;
+  const fin=(function(){const f=()=>{ if(f.done) return; f.done=true; __sayOpen--; cb&&cb(); };
+    f.done=false; return f;})();
+  let timer=null;
+  const arm=(ms)=>{ try{ clearTimeout(timer); }catch(e){} timer=setTimeout(fin,ms); };
+  // Armed BEFORE the fetch, and the request itself is bounded. With a deadline INSIDE
+  // .then, a /api/tts that never answered (a wedged Piper synth) would mean say() never
+  // called back at all -- and every
+  // caller here is a state machine that only advances in that callback (listen after
+  // the menu, startCam after the give-up line, goHome after the completion line). It is
+  // STRICTLY longer than the 8 s abort below: sayMaxMs floors at 5000, so any line under
+  // ~53 characters would otherwise pre-arm at exactly 8000 too and -- being registered
+  // first -- fire before the abort could route into .catch.
+  arm(Math.max(sayMaxMs(text),8000)+3000);
+  // AbortSignal.timeout is Chromium 103+; an older engine would throw HERE, before the
+  // .catch below exists, and take the whole speech ladder down with it. That engine also
+  // leaves the fetch unbounded, which is the other reason both handlers check fin.done.
+  const opts=(typeof AbortSignal!=='undefined'&&AbortSignal.timeout)
+    ?{signal:AbortSignal.timeout(8000)}:undefined;
+  fetch('/api/tts?lang='+LANG+'&text='+encodeURIComponent(text),opts)
+    .then(r=>{ if(!r.ok) throw 0; return r.blob(); })
+    .then(b=>{ if(fin.done||gen!==__sayGen) return;   // moved on, or silenced: stay silent
+      const a=new Audio(URL.createObjectURL(b)); __sayAudio.push(a);
+      a.onended=fin; a.onerror=fin; a.onplay=began;
+      // The length heuristic is only needed until the decoder knows the REAL duration;
+      // re-arm from it so a line longer than the estimate is never cut off mid-word.
+      a.onloadedmetadata=()=>{ if(isFinite(a.duration)&&a.duration>0) arm(a.duration*1000+750); };
+      a.play().catch(()=>{ throw 0; }); arm(sayMaxMs(text)); })
+    .catch(()=>{ if(fin.done||gen!==__sayGen) return;   // ...browser TTS is speech too
+      try{ speechSynthesis.cancel();
+      const u=new SpeechSynthesisUtterance(text); u.lang=LANG_BCP; u.onend=fin;
+      u.onstart=began;
+      speechSynthesis.speak(u); arm(Math.max(3000,text.length*70)); }
+      catch(e){ fin(); } });
+}
+
+const q=new URLSearchParams(location.search), demo=q.get('demo')==='1', sso=q.get('sso');
+// How long the iframe has to say ANYTHING before this page gives up on it (0 = never).
+// A session that never starts is not a rare failure: the whole flow after `GET /session`
+// lives inside a cross-origin frame, and without a deadline a badge scan can leave the
+// robot with its antennas open, silent and unresponsive.
+const SESSION_START_MS=45000;
+// A: the confirmation the LANDING page does not hold itself back to speak (3,158 ms of
+// measured dead time if it did). Empty for every path that never announced anything (a badge-direct
+// start, a walk-in, a session whose module is not on the live menu). See pages.START_COVER
+// and the beginSession comment on why this document -- not the one being navigated away
+// from -- is the only one that can deliver a whole sentence.
+const START_LINE="Starting Active Listening. Give me a moment while I set everything up, and we'll begin as soon as it's ready.";
+// ...and the ONE thing that ends it early. The line covers a load, so the moment the load
+// finishes -- i.e. the moment Pokamind itself starts talking -- this page must get off the
+// robot's single speaker. The session frame reports its opening on the EXISTING
+// pokamind_emori_dbg channel, and 'opening-intro-first-play' fires when the
+// scenario's first audio ACTUALLY starts playing. Every other stage (mount,
+// intro-requested, warmup-trigger, endpointer-ready, the rolled-up latency) happens while
+// the frame is still silent, so first-play is the only honest hand-over signal here.
+//
+// If the trace never arrives -- an older app version, a module whose intro never plays, a
+// frame that dies -- nothing calls this and the line simply finishes, exactly as it does
+// today. The interlock can only ever SHORTEN the announcement.
+//
+// GRACE. A first-play that arrives in the first second of the line being audible is not
+// honoured, and the line is allowed to finish. Reasoning, because this is the one place a
+// deliberate choice is being made:
+//   * the two mistakes are not symmetric. Ignoring a genuine early first-play costs the
+//     remainder of one ~6 s sentence overlapping the scenario's opening -- audibly two
+//     voices, bounded, and exactly what happens today. Honouring a bogus one produces
+//     "Star--" and then silence, on EVERY session it affects, which on a screenless robot
+//     is indistinguishable from a crash and has no recovery;
+//   * under a second there is nothing to preserve by cutting: Piper has emitted a syllable
+//     or two, so the "announcement" the visitor gets is a noise, not information;
+//   * and it is not physically the signal it claims to be. The measured load is ~16 s
+//     (SSO 302, app boot, session mint, intro synthesis); a first-play a few hundred ms
+//     into this page's own line is a duplicated or replayed trace, not Pokamind speaking.
+// Not-yet-audible is a THIRD case and is handled differently: there the line is cancelled
+// outright, which is neither a clipped word nor an overlap (stopSpeech now also latches
+// say()'s generation, so a WAV that arrives afterwards is never played).
+const COVER_HUSH_GRACE_MS=1000;
+let coverAudibleAt=0, coverSettled=false;
+// The robot moves on what it hears from the speaker, and it hears this line too. It is told
+// when the line starts and stops, so the first sentence performs on its own sound.
+let coverHeld=false;
+function coverHold(on){
+  if(coverHeld===on) return;
+  coverHeld=on;
+  try{ fetch('/api/voice-cover',{method:'POST',headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({on:on}),keepalive:true}).catch(()=>{}); }catch(e){}
+}
+function coverAudible(){ if(!coverAudibleAt) coverAudibleAt=Date.now(); coverHold(true); }
+function hushCover(){
+  // `over` first: once finish()/goHome() owns the speaker, the covering line is long
+  // gone and stopSpeech() here would cut the SUMMARY or the ending line instead. A
+  // late or duplicated first-play (a frame that re-mounts, a retried intro) is exactly
+  // how that arrives, so this is not hypothetical.
+  if(over||coverSettled||!START_LINE) return;
+  coverSettled=true;   // decided once: a duplicate trace must not re-open the question
+  if(coverAudibleAt && Date.now()-coverAudibleAt<COVER_HUSH_GRACE_MS) return;  // let it finish
+  stopSpeech();
+  coverHold(false);
+}
+// Read behind a guard, like authFailCode below: this listener also carries the relay, the
+// auto-begin and the VAD telemetry, so one throwing getter on a junk message must not be
+// able to kill the rest of the conversation. An EXACT stage match, never a prefix -- the
+// other opening-* stages are debug, and this branch stays a pure relay for all of them.
+function isOpeningFirstPlay(m){
+  try{ return !!m && m.stage==='opening-intro-first-play'; }catch(e){ return false; } }
+// Same shape, same reason: property access on a hostile payload may throw.
+function isTtAck(m){
+  try{ return !!m && (m.stage==='tt-patch-applied'||m.stage==='tt-patch-rejected'); }
+  catch(e){ return false; } }
+status.textContent='ready';
+// ONE latch for "this page is done", shared by both exits (finish below, goHome further
+// down): whichever fires first wins, so the kiosk navigates exactly once.
+let over=false;
+function finish(d){ if(over) return; over=true;
+  status.textContent=S.session_over;
+  // stopSpeech() before navigating: the 30 s cap can fire while the summary is still
+  // being read, and an unstopped WAV keeps playing over the next learner's greeting on
+  // the landing page (same single-speaker overlap as the landing announcement).
+  // next() is reachable from BOTH the say() callback and the 30s cap; latch it so the
+  // second arrival cannot re-navigate mid-navigation (the beginSession go() treatment).
+  let went=false;
+  const next=()=>{ if(went) return; went=true; stopSpeech(); location.href=(d&&d.next_url)||'/'; };
+  if(d&&d.summary){ say(d.summary, ()=>setTimeout(next,800)); setTimeout(next,30000); }
+  else setTimeout(next,2500); }
+// A session can also end ROBOT-side: the walk-away fail-safe finalizes inside the hostapp
+// when Pokamind never answers `emori_cmd:end` (a dead iframe). Nothing in this page can
+// observe that - it sat on a dead session forever, renderer spinning, and the kiosk never
+// returned to the badge screen. `home` is the hostapp
+// saying "leave this page"; it is a PAGE verb, so it is acted on HERE and never relayed
+// into the frame. The server keeps it set until a new /session opens, so the guard above
+// - not the delivery count - is what makes it navigate once.
+function goHome(why,line){ if(over) return; over=true; status.textContent=why;
+  // A robot-side end (walk-away, watchdog) previously navigated in silence - the ONLY
+  // session ending with no user feedback at all. Speak the same completion line the
+  // normal finish() shows, THEN go home. This is post-finalize, so it cannot overlap
+  // the roleplay's own TTS (the session is already over); a hung say() is capped.
+  // `line` overrides the completion wording for an ending that is NOT a completion (a
+  // session that never started); a mute reset there is the one thing this must never be.
+  stopSpeech();
+  const spoken=line||S.session_over;
+  let gone=false; const go=()=>{ if(gone) return; gone=true; stopSpeech(); location.href='/'; };
+  say(spoken, ()=>setTimeout(go,300)); setTimeout(go, sayMaxMs(spoken)+1500); }
+// The session-start deadline. It is disarmed by the FIRST pokamind_* message of any
+// kind - that message is the only proof the frame is alive, because the frame is
+// cross-origin (its load event fires for a blank error document just as happily) and the
+// greeting gesture that precedes it ends with the antennas open and no settle pose.
+let frameSpoke=false, startTimer=null;
+function noteFrameAlive(){ if(frameSpoke) return; frameSpoke=true;
+  try{ if(startTimer){ clearTimeout(startTimer); startTimer=null; } }catch(e){}
+  // Mirror the disarm to the adapter-side watchdog: its own disarm (first
+  // analysis/AI line) lags a live frame by design, and it killed a healthy
+  // boot at +57s. Fire-and-forget, once.
+  try{ fetch('/api/frame-alive',{method:'POST'}); }catch(e){} }
+function sessionStartFailed(why){
+  if(over||frameSpoke) return;
+  try{ if(startTimer){ clearTimeout(startTimer); startTimer=null; } }catch(e){}
+  // Tell the hostapp FIRST: it owns the session the robot is holding open (training
+  // lease, mic profile, the driver's tracker), and this page is about to navigate away
+  // from it. Fire-and-forget - the belt-and-braces adapter-side watchdog covers a kiosk
+  // that cannot even reach its own origin.
+  try{ fetch('/api/session-start-failed',{method:'POST',
+    headers:{'content-type':'application/json'},body:JSON.stringify({reason:why})}); }catch(e){}
+  goHome(why, S.session_start_failed); }
+// Squeeze the `code` of an auth-failure report into the hostapp's OWN status-code grammar
+// (server.py `_SAFE_STATUS_CODE_RE` = /^[a-z][a-z0-9_]{0,63}$/, the same one readycheck
+// shares).  It arrives by postMessage, so in principle any frame can author it, and it
+// then reaches a request body, a WARNING log line and the on-screen status -- the repo's
+// slug discipline applies.  Two properties matter: the result is ALWAYS accepted by that
+// validator (never silently degraded to `session_never_started`, which would misreport an
+// auth failure as a timeout), and nothing the message carried survives except [a-z0-9_].
+// A non-string, a hostile object, an empty or fully-stripped code all fall back to the
+// bare `auth_failed`, which is still a true and specific description of what happened.
+// Reading `.code` happens INSIDE the guard, not at the call site: this listener also
+// carries the relay, the auto-begin and the VAD telemetry, so one throw on a junk message
+// would silently kill the rest of the conversation.
+function authFailCode(msg){ let c='';
+  try{ const raw=msg&&msg.code;
+    if(typeof raw==='string') c=raw.toLowerCase().replace(/[^a-z0-9_]/g,''); }catch(e){ c=''; }
+  return ('auth_failed'+(c?('_'+c):'')).slice(0,64); }
+function armSessionStartDeadline(){
+  if(!(SESSION_START_MS>0)) return;
+  startTimer=setTimeout(()=>{ startTimer=null;
+    sessionStartFailed('session_never_started'); }, SESSION_START_MS); }
+// Relay each cycle to the host app over plain HTTP (drives the robot). Same-origin POST.
+function relay(payload){ fetch('/api/cycle',{method:'POST',headers:{'content-type':'application/json'},
+  body:JSON.stringify(payload)}).then(r=>r.json()).then(d=>{
+    if(d&&d.completed){ finish(d); return; }
+    if(d&&d.level) status.textContent='robot: '+d.level+
+      (d.reasons&&d.reasons.length?(' ('+d.reasons[0]+')'):''); })
+  .catch(()=>{ status.textContent='relay error (see /api/status)'; }); }
+
+// Real path: embed Pokamind, forward only the pokamind_* postMessages.
+let emoriFrame=null;
+function emoriCmd(cmd){ try{ emoriFrame&&emoriFrame.contentWindow&&
+  emoriFrame.contentWindow.postMessage({type:'emori_cmd',cmd:cmd},'*'); }catch(e){} }
+// Turn-taking override channel: push turn-taking/VAD overrides (window.__EMORI_TT) into the frame.
+// It reuses the EXISTING command envelope (type:'emori_cmd') on purpose -- Pokamind's
+// listener already switches on that one type, so no NEW inbound message type is
+// introduced anywhere. Unlike wake/endpoint/end this command carries DATA,
+// so it is posted with EXPLICIT targetOrigins and never '*': the browser drops it unless
+// the frame document is on an allowed origin, so a redirected or hijacked frame can never
+// be handed the kiosk's tuning. Strictly OUTBOUND -- the only way to change the patch is a
+// same-origin POST /api/tt-overrides, which is env-gated OFF by default.
+// Delivery is ACK-DRIVEN, and that is the whole point. A single push on the
+// revision edge is a RACE it loses: the patch is posted ~250 ms after the frame
+// document loads, but the listener that applies it only exists once the app has
+// mounted the session UI seconds later -- and postMessage has no buffer, so the
+// patch would be silently dropped and the kiosk would quietly run profile defaults.
+// So: keep the patch, re-push it every poll tick until the frame ACKs it, and
+// stop on the ACK (or after a bounded number of tries, so a frame that never
+// applies it cannot cost anything for the rest of the session).
+const TT_ORIGINS=["https://api.pokamind.com", "https://app.pokamind.com"]; let ttRev=-1, ttPatch=null, ttAcked=false, ttTries=0;
+const TT_MAX_TRIES=120;   // 120 x 250 ms = 30 s, which outlasts a slow React mount
+function ttPush(patch){ if(!emoriFrame||!emoriFrame.contentWindow) return;
+  for(let i=0;i<TT_ORIGINS.length;i++){ try{ emoriFrame.contentWindow.postMessage(
+    {type:'emori_cmd',cmd:'tt_patch',patch:patch},TT_ORIGINS[i]); }catch(e){} } }
+// Called every poll tick: re-deliver until the frame says it applied it.
+function ttRetry(){ if(!ttPatch||ttAcked||ttTries>=TT_MAX_TRIES) return;
+  ttTries++; ttPush(ttPatch); }
+async function ttSync(rev){ if(rev===ttRev) return; ttRev=rev; if(!rev) return;
+  try{ const r=await fetch('/api/tt-overrides'); if(!r.ok) return; const d=await r.json();
+    ttRev=d.rev; if(d.patch&&Object.keys(d.patch).length){
+      ttPatch=d.patch; ttAcked=false; ttTries=0; ttPush(d.patch);
+      if(!over) status.textContent='tt overrides r'+d.rev; } }catch(e){} }
+if(sso){
+  const f=document.createElement('iframe'); f.src=sso; emoriFrame=f;
+  // A (re)navigated frame is a NEW document with no patch and no listener yet:
+  // re-arm both the revision edge and the retry loop.
+  f.onload=()=>{ ttRev=-1; ttAcked=false; ttTries=0; };
+  // A frame that cannot even load has nothing to wait for; end on the spot rather than
+  // stand silent for the whole deadline. (Cross-origin, this rarely fires -- which is
+  // exactly why the timer below, not this handler, is the load-bearing half.)
+  f.onerror=()=>{ sessionStartFailed('session_frame_error'); };
+  // Delegate camera/mic to ALL origins inside the frame (note the `*`). `allow='camera'`
+  // (no allowlist) defaults to the frame's *src* origin only (the SSO origin); but after
+  // the SSO redirect the session document runs on the app origin, so getUserMedia
+  // there is Permissions-Policy-denied -> NotAllowedError "Permission denied". `camera *`
+  // grants the post-redirect origin too. (On the real robot the kiosk Chromium also
+  // auto-grants via --use-fake-ui-for-media-stream; see onrobot runbook.)
+  f.allow='camera *;microphone *;autoplay *'; stage.appendChild(f);
+  armSessionStartDeadline();
+  // The app posts from its own origin, not the SSO origin, so forward by message type.
+  // Screenless auto-begin: a fullscreen kiosk has NO keyboard/mouse/touch, so it can never
+  // click "Begin Conversation". The scenario intro finishing (the FIRST pokamind_tts_ended)
+  // is the cue to start the roleplay -- we send the same 'wake' the head-tilt 'begin' would
+  // (the frame handles it exactly like the button). Once only;
+  // every later tts_ended is a conversation turn owned by the endpointer. It fires AFTER the
+  // intro audio fully ends (never during), and Pokamind hard-mutes the mic while the AI then
+  // speaks its first line, so the first-turn restate bug stays structurally impossible.
+  let autoBegun=false;
+  addEventListener('message',e=>{ const d=e.data||{};
+    // FIRST, ahead of the prefix match below: the ONE pokamind_* message that is a report
+    // of DEATH, not proof of life. Pokamind's partner-SSO callback posts
+    // {type:'pokamind_auth_failed',code} when it cannot sign this badge in (no token, an
+    // invalid token, a sign-in that never completed) - the frame is up, but it will never
+    // have a user, a socket, or a session. Falling through to noteFrameAlive() would clear
+    // the start deadline AND disarm the adapter-side watchdog, and latch frameSpoke, after
+    // which sessionStartFailed() early-returns forever: the failure would SUPPRESS itself
+    // and the robot would stand there until the walk-away path mislabels it a minute later.
+    // So route it into the existing failure path instead, with its own code. That is
+    // deliberately independent of SESSION_START_MS: this is a definitive report, not a
+    // deadline, and it is still safe when the frame is already live - sessionStartFailed()
+    // stands down once frameSpoke, and `abort_unstarted_session` refuses a session that has
+    // exchanged anything.
+    if(d.type==='pokamind_auth_failed'){ sessionStartFailed(authFailCode(d)); return; }
+    // ANY OTHER pokamind_* message proves the frame came up, including the endpointer's own
+    // VAD/debug chatter below - so the deadline is disarmed here, before the two early
+    // returns, and not only on a real cycle.
+    if(typeof d.type==='string' && d.type.indexOf('pokamind_')===0) noteFrameAlive();
+    // VAD telemetry from the in-iframe endpointer: SHOW it (headless/fullscreen debug),
+    // do NOT relay it to /api/cycle (it is not a real Pokamind cycle).
+    if(d.type==='pokamind_emori_vad'){ if(!over) status.textContent=
+      'mic '+(d.speaking?'● SPEAKING':(d.hasSpoken?'○ silence '+d.silence+'s':'○ (say something)'));
+      try{ fetch('/api/emori-debug',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(d)}); }catch(_e){}
+      // Throttled speaking relay: feeds the adapter watchdog's stall clock so a
+      // long, continuously-spoken answer is never force-ended mid-turn. Every VAD frame
+      // with speaking:true is a candidate, but rate-limited to >=1s apart -- while the
+      // user keeps talking this fires ~1/s (refreshing the clock every second), and while
+      // silent it stops firing entirely, so a real stall is still detected.
+      if(d.speaking && (!window.__emSpkT || Date.now()-window.__emSpkT>1000)){ window.__emSpkT=Date.now();
+        try{ fetch('/api/cycle',{method:'POST',headers:{'content-type':'application/json'},
+          body:JSON.stringify({type:'pokamind_user_speaking'})}); }catch(_e){} }
+      return; }
+    // Endpointer lifecycle/VAD debug: relay to the same-origin hostapp sink so it shows in
+    // the server log (the iframe cannot POST :8095 cross-origin; the parent can).
+    if(d.type==='pokamind_emori_dbg'){
+      // The frame's answer to a tt_patch push. Either verdict ends the retry loop:
+      // 'applied' got what we wanted, 'rejected' means re-sending the same patch
+      // would be rejected the same way -- and both are already logged below.
+      // Read through isTtAck(), never `d.stage` inline: a hostile frame can make
+      // any property THROW on access, and this listener also carries the opening
+      // trace and the frame-alive proof, so one throw here would silence both.
+      if(isTtAck(d)){ ttAcked=true;
+        if(!over) status.textContent='tt overrides applied'; }
+      // The opening trace carries the covering line's interlock (see hushCover above).
+      // Deliberately INSIDE the debug branch and behind an exact stage match: the two
+      // rules above -- the auth-failure intercept and the pokamind_* frame-alive prefix --
+      // are untouched, and every other stage still relays and nothing else.
+      if(isOpeningFirstPlay(d)) hushCover();
+      try{ fetch('/api/emori-debug',{method:'POST',
+      headers:{'content-type':'application/json'},body:JSON.stringify(d)}); }catch(_e){} return; }
+    if(typeof d.type==='string' && d.type.indexOf('pokamind_')===0){ if(!over) status.textContent='relayed '+d.type; relay(d);
+      if(d.type==='pokamind_tts_ended' && !autoBegun){ autoBegun=true;
+        if(!over) status.textContent='intro read → begin'; emoriCmd('wake'); } } });
+
+  // EMORI screenless session control = PHYSICAL head-tilt gesture (no voice wake-word).
+  // The adapter's gesture sensor watches the back-drivable head pose and, on a deliberate
+  // nudge, queues a command (begin when idle / end when active). This page polls for it
+  // (same-origin) and relays it into the Pokamind iframe. The endpointer still auto-submits
+  // mid-conversation turns; the head-tilt is only for begin + intentional end.
+  status.textContent='starting when the intro finishes…';
+  setInterval(async ()=>{ if(over) return;
+    try{ const r=await fetch('/api/pending-cmd'); if(!r.ok) return; const d=await r.json();
+      if(typeof d.tt_rev==='number') ttSync(d.tt_rev);
+      ttRetry();   // until the frame ACKs it (see ttPush)
+      if(d.cmd==='begin'){ status.textContent='head-tilt -> begin'; emoriCmd('wake'); }
+      else if(d.cmd==='end'){ status.textContent='head-tilt -> end'; emoriCmd('end'); }
+      else if(d.cmd==='reprompt'){ status.textContent='re-prompt'; emoriCmd('reprompt'); }
+      else if(d.cmd==='home'){ goHome('session ended -> kiosk'); }
+    }catch(e){} }, 250);
+
+  // Keyboard fallback so the session is testable on a fullscreen kiosk with no DevTools
+  // and even when the dev-box mic/STT is flaky:  B=begin(wake)  S=submit(endpoint)  E=end.
+  addEventListener('keydown',ev=>{ const k=(ev.key||'').toLowerCase();
+    if(k==='b'){ status.textContent='[key] begin'; emoriCmd('wake'); }
+    else if(k==='s'){ status.textContent='[key] submit'; emoriCmd('endpoint'); }
+    else if(k==='e'){ status.textContent='[key] end'; emoriCmd('end'); } });
+}
+// Demo path: synthesise a believable engagement arc so the robot reacts without Pokamind.
+// The demo emits the EXACT live contract shape (dense 31-style dict, 6 body fields with
+// Pokamind's real vocabulary, engagement/confidence metrics only) so demo behaviour never
+// overstates what the live feed will produce.
+if(demo){
+  let seq=0; const N=20;
+  const STYLES=["direct", "withdrawing", "pausing", "energetic", "quiet", "abrupt", "steady", "rapid", "mirroring", "firm", "reserved", "complimentary", "acknowledging", "planning", "paced", "investigative", "casual-toned", "muted", "brief", "lively", "neutral", "measured", "still", "ambiguous", "exploratory", "evaluative", "softening", "sudden", "analytical", "smooth", "corrective"];
+  const arc=[0.7,0.8,0.85,0.4,0.35,0.75,0.55,0.5,0.62,0.8];
+  const t=setInterval(()=>{ const eng=arc[seq%arc.length];
+    const agitated=(seq%10>=3&&seq%10<=4);
+    const styles={}; const boost=agitated?['rapid','abrupt','energetic','sudden']:
+      (eng>0.6?['mirroring','acknowledging','investigative','lively']:['withdrawing','quiet','reserved','muted']);
+    let total=0; STYLES.forEach(s=>{ let v=100.0/STYLES.length;
+      if(boost.indexOf(s)>=0) v*=3.2; styles[s]=v; total+=v; });
+    Object.keys(styles).forEach(k=>{ styles[k]=Math.round(styles[k]/total*1000)/10; });
+    relay({type:'pokamind_analysis_update',seq:seq,timestamp:new Date().toISOString(),
+      communication_styles:styles,
+      body_language:{posture:eng>0.6?'leaning_forward':'leaning_back',
+        head_position:eng>0.6?'nodding':(agitated?'shaking':'tilted_left'),
+        gesture_type:agitated?'pointing':'open_palm',
+        overall_energy:agitated?'high':(eng>0.6?'medium':'low'),
+        engagement_score:Math.round(eng*100),confidence_score:Math.round(eng*90)},
+      body_language_metrics:{engagement:Math.round(eng*100),confidence:Math.round(eng*90)}});
+    // every other cycle, emit a (demo) AI line so the ROBOT performs its talking gesture
+    if(seq%2===0){const lines=['I understand this is difficult for you.','Let me see what I can do to help.',
+      'Take your time, there is no rush.','I hear your concern, let us look at the options.'];
+      relay({type:'pokamind_ai_utterance',seq:seq,timestamp:new Date().toISOString(),
+        text:lines[(seq/2)%lines.length|0]});}
+    seq++;
+    if(seq>=N){ clearInterval(t);
+      relay({type:'pokamind_session_completed',status:'completed',session_id:'demo',
+        partner:'demo',results:{demo:true}}); }
+  }, 2000);
+}
+// LAST, deliberately: everything above is synchronous, so by the time this runs the
+// Pokamind iframe is already appended (the load is in flight) and the 45 s start deadline
+// is already armed. Speaking can therefore only ever be a passenger on the load, never a
+// gate in front of it -- which is the whole point of moving the line here.
+//
+// Nothing in this page waits on the covering line, and its callback only says the line has
+// ended. Every exit that
+// follows (finish, goHome, sessionStartFailed -> goHome) already calls stopSpeech() before
+// it speaks or navigates, so a line still playing when a session ends early is silenced by
+// the paths that exist, and say()'s own deadlines cap a wedged /api/tts.
+//
+// The third argument is the START hook, and it is only used to decide whether cutting the
+// line would clip a word: the covering line is the one utterance on this kiosk that a
+// message from a cross-origin frame is allowed to interrupt (hushCover above).
+if(START_LINE) say(START_LINE,()=>coverHold(false),coverAudible);
+</script></body></html>

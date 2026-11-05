@@ -1,0 +1,71 @@
+# ROS 2 Jazzy on the CM4, natively, with no Docker: a RoboStack (conda-forge) environment
+# managed by pixi.
+#
+# WHY THIS EXISTS. The robot is Debian Trixie / aarch64. There are no OSRF binaries for
+# Debian, so the three honest routes are: RoboStack (this file), rospian's unofficial
+# Jazzy .debs for Trixie arm64, or the Docker host-network container
+# (deploy/ros2/docker-compose.v2.robot.yml). The container is the zero-risk route and is
+# what the runbook recommends; this one is for a robot where the ~1 GB image, the Docker
+# daemon and the device passthrough are not wanted -- v2's node drives the motors, so it
+# is the one container whose failure is not merely observational.
+#
+#   pixi install                                 # on the robot
+#   pixi run build                               # colcon build ../../../ros2_ws
+#   pixi run launch                              # the whole v2 graph
+#
+# NOT VALIDATED ON HARDWARE. See README.md for exactly what was and was not checked.
+[workspace]
+name = "emori-ros2-native"
+version = "0.1.0"
+description = "ROS 2 Jazzy + reachy-mini for the Reachy Mini CM4 (Debian Trixie, aarch64)"
+authors = ["Pokamind AB"]
+channels = ["https://prefix.dev/robostack-jazzy", "conda-forge"]
+# linux-aarch64 is the robot. linux-64 is here so the environment can be resolved and
+# smoke-tested on a workstation before anyone touches the robot -- a lock file that can only
+# be produced on the hardware it is meant to de-risk is not much of a de-risking.
+platforms = ["linux-aarch64", "linux-64"]
+
+[dependencies]
+python = "3.12.*"
+pip = "*"
+ros-jazzy-ros-base = "*"
+# Every /diagnostics ledger, including the robot node's.
+ros-jazzy-diagnostic-msgs = "*"
+# The TransformBroadcaster that puts base_link -> head on /tf.
+ros-jazzy-tf2-ros = "*"
+# The robot's camera: /dev/video40, the v4l2loopback node EMORI's camera bridge produces.
+ros-jazzy-v4l2-camera = "*"
+colcon-common-extensions = "*"
+# NOT HERE, AND IT IS NOT AN OVERSIGHT: ros-jazzy-hri-msgs. RoboStack's jazzy channel does
+# not build it -- `pixi lock` answers "No candidates were found for ros-jazzy-hri-msgs"
+# for linux-aarch64 AND linux-64 (checked with pixi 0.81.0). hri_msgs is a pure
+# rosidl interface package, so install-native.sh clones it into the colcon workspace and
+# it is built from source alongside emori_msgs. The apt route (the Docker image) has the
+# binary; the conda route does not.
+
+# NO [pypi-dependencies] SECTION, AND THAT IS A DECISION. `reachy-mini==1.10.0` belongs
+# here on paper, and install-native.sh step 2 pip-installs it into this environment
+# instead, for two measured reasons (both with pixi 0.81.0):
+#
+#   1. pixi cannot resolve PyPI requirements for a platform the resolving machine cannot
+#      execute. On Windows: "The workspace does not support 'win-64' on this machine."
+#      A manifest carrying it could therefore only ever be locked ON the robot, which
+#      defeats the point of shipping a lock file.
+#   2. Even from a linux-64 container, resolving the aarch64 half fails: reachy-mini
+#      needs PyGObject, PyGObject publishes no aarch64 wheel, and building its pycairo
+#      dependency from sdist wants a C compiler and cairo/girepository headers that the
+#      resolving environment does not have.
+#
+# Consequence for the robot, and install-native.sh says it too: the CM4 needs
+# `sudo apt-get install -y build-essential libcairo2-dev libgirepository1.0-dev
+# pkg-config` before step 2, exactly as the Docker image does.
+#
+# Also note the absence of the [mujoco] extra: the simulator is ~300 MB of wheels the CM4
+# will never run a physics step with, and REACHY_BACKEND=robot never imports it.
+
+[tasks]
+# The workspace lives in the repository, three levels up from this directory.
+build = { cmd = "colcon build --event-handlers console_direct+", cwd = "../../../ros2_ws" }
+launch = { cmd = "ros2 launch emori_adapter_bringup v2.launch.py", cwd = "../../../ros2_ws" }
+# What to run by hand when the unit will not start.
+doctor = { cmd = "ros2 node list" }

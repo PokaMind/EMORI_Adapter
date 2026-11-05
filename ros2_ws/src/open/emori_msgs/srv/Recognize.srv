@@ -1,0 +1,10 @@
+# /emori/speech/recognize. Speech to text on the robot, over 16 kHz mono signed 16-bit
+# little-endian samples. An empty `grammar` is open mode.
+uint8[] pcm_s16le_16k
+string lang
+string[] grammar
+---
+bool ok
+string text
+float32 conf                # -1.0 = open mode
+string error_code

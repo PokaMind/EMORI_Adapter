@@ -1,0 +1,13 @@
+.git
+.venv*
+reachy_env
+docs
+**/__pycache__
+**/*.pyc
+ros2_ws/build
+ros2_ws/install
+ros2_ws/log
+.pytest_cache
+.ruff_cache
+*.log
+scratch

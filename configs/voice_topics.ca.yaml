@@ -1,0 +1,45 @@
+# Menú verbal de temes (screenless): un número dit -> un mòdul de Pokamind.
+# El robot diu `prompt`, escolta, i les paraules reconegudes es mapegen a una opció
+# (vegeu emori_adapter.hostapp.voice_topics.VoiceMenu.match). El `module_id` triat es
+# passa per l'SSO de partner perquè Pokamind iniciï aquell mòdul directament (sense pantalla).
+#
+# Menú de desenvolupament en català: els module_id són exemples i no existeixen a Pokamind.
+# Un robot no el fa servir: construeix el seu menú a partir del seu registre de Pokamind
+# (configs/site/auto/), o del que es desa a la pàgina d'administració del mòbil
+# (configs/site/voice_topics.ca.yaml). EMORI_VOICE_TOPICS_CA té prioritat sobre tots dos.
+#
+# Les opcions 4, 5 i 6 només són accessibles per número si _NUMBER_WORDS_BY_LANG["ca"]
+# inclou quatre/cinc/sis (i el lèxic de Vosk-ca els conté).
+
+prompt: >-
+  Hola. Per triar la teva pràctica, digues u per Converses difícils, dos per Escolta
+  activa, tres per Treball en equip, quatre per Gestió del temps, cinc per Parlar en
+  públic, o sis per Resolució de conflictes.
+
+options:
+  "1":
+    module_id: example-ca-module-1
+    name: Converses difícils
+    keywords: [converses, converses difícils, converses dificils, difícils, dificils]
+  "2":
+    module_id: example-ca-module-2
+    name: Escolta activa
+    keywords: [escolta, escolta activa, activa]
+  "3":
+    module_id: example-ca-module-3
+    name: Treball en equip
+    keywords: [treball, treball en equip, equip]
+  "4":
+    module_id: example-ca-module-4
+    name: Gestió del temps
+    keywords: [gestió, gestio, gestió del temps, gestio del temps, temps]
+  "5":
+    module_id: example-ca-module-5
+    name: Parlar en públic
+    keywords: [parlar, parlar en públic, parlar en public, públic, public]
+  "6":
+    module_id: example-ca-module-6
+    name: Resolució de conflictes
+    keywords: [resolució, resolucio, resolució de conflictes, resolucio de conflictes, conflictes]
+
+default: "1"

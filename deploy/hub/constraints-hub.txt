@@ -1,0 +1,43 @@
+# The Python packages of the hub's virtualenv, installed with --no-deps, so every package the
+# hub needs is named here. The versions are the ones the host application's virtualenv runs,
+# so the two agree. onnxruntime, httpx, websockets and rich are not listed: the virtualenv
+# sees the image's own copies.
+#
+# zxing-cpp and pillow are not declared by the package, but the QR decoder needs them;
+# without them it quietly decodes nothing.
+piper-tts==1.5.0
+numpy==2.5.1
+fastapi==0.139.2
+starlette==1.3.1
+uvicorn==0.51.0
+wsproto==1.3.2
+h11==0.16.0
+anyio==4.14.2
+pydantic==2.13.4
+pydantic-core==2.46.4
+annotated-types==0.7.0
+annotated-doc==0.0.4
+typing-inspection==0.4.2
+typing-extensions==4.16.0
+PyJWT==2.13.0
+cryptography==45.0.7
+cffi==2.1.0
+pycparser==3.0
+segno==1.6.6
+vosk==0.3.45
+srt==3.5.3
+tqdm==4.69.0
+requests==2.34.2
+urllib3==2.7.0
+certifi==2026.7.22
+idna==3.18
+charset-normalizer==3.4.9
+zxing-cpp==3.1.0
+pillow==12.3.0
+PyYAML==6.0.3
+python-dotenv==1.2.2
+click==8.4.2
+typer==0.27.0
+shellingham==1.5.4
+protobuf==7.35.1
+pathvalidate==3.3.1

@@ -1,0 +1,75 @@
+# What scripts/golden_trace.py compare allows between a reference stack and the one under test.
+#
+# Every entry is relative to the reference runs: nothing here is a figure of any one robot.
+# Each stat carries a tolerance T, and three rules apply to each:
+#   allowed = min(2T, max(T, 1.5 x spread)), where spread is across the reference runs;
+#   when 1.5 x spread > 2T the quantity is too noisy to judge, which is a failure;
+#   a median may move at most T/2, however noisy the runs are.
+# A stat holds `sim` and `robot` seconds, or `relative`, a share of the reference's value.
+# `worse_only` lets the value improve without limit. `min_t` is the smallest T a relative
+# rule may come to, so that a call of a few milliseconds is not judged on timer granularity.
+
+schema: 1
+
+runs:
+  default: 3
+  # A real voice varies more than a timer, and these scenarios depend on it.
+  voiced: 5
+
+plan:
+  float_eps: 1.0e-6
+  # A voice-scaled antenna is the authored angle times this range.
+  antenna_voice_range: [0.55, 1.0]
+  # The scheduler's clock decides between two plans at these ages: its gap between recorded
+  # moves and how long a carried family lives (behavior/cue_scheduler.py). A plan may change
+  # when an age lands this close to one, on this many occasions per scenario.
+  clock_boundaries_s:
+    recorded_gap: 3.0
+    carry_ttl: 20.0
+  clock_window_s: 0.15
+  clock_changes_allowed: 1
+  # The beat in flight when a voice stops can land on either side of the plan's cut.
+  voice_cut_steps: 1
+  voice_cuts_allowed: 2
+  # Two parts of a gesture are one batch when the later starts within the earlier's duration
+  # plus this. The rest is scheduling.
+  batch_slack_s: 0.25
+
+http:
+  # Fields a stack may report about itself, by route.
+  ignore_fields:
+    /healthz: [runtime]
+
+quantities:
+  inter_intent_s:
+    median: {sim: 0.030, robot: 0.050}
+    p95: {sim: 0.030, robot: 0.050}
+    max: {robot: 0.150}
+  post_to_first_intent_s:
+    median: {sim: 0.050, robot: 0.050}
+    p95: {sim: 0.050, robot: 0.050}
+  voice_onset_to_first_move_s:
+    median: {sim: 0.050, robot: 0.050}
+    p95: {sim: 0.050, robot: 0.050}
+  sustain_beats_per_voice_s:
+    median: {relative: 0.10, min_t: 0.05}
+  idle_interval_s:
+    median: {sim: 0.25, robot: 0.25}
+  pending_appearance_s:
+    value: {sim: 0.300, robot: 0.300}
+  gate_edge_s:
+    value: {sim: 0.200, robot: 0.200}
+  mic_change_s:
+    value: {sim: 0.200, robot: 0.200}
+  http_latency_s:
+    p95: {relative: 0.20, worse_only: true, min_t: 0.025}
+  client_duration_s:
+    p95: {relative: 0.20, worse_only: true, min_t: 0.025}
+  tick_interval_s:
+    # Judged on passive sessions: a scripted run has no contention to show.
+    only_kind: passive
+    median: {relative: 0.10}
+    p95: {relative: 0.15}
+    p99: {relative: 0.25}
+  piper_same_sentence_s:
+    median: {relative: 0.10}

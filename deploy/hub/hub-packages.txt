@@ -1,0 +1,11 @@
+# The Debian packages the hub image adds to the motor image, one per line. The payload build
+# resolves each with its dependencies against the image's own package index and downloads
+# the whole closure into debs/ for Dockerfile.hub-base.
+
+# pw-cli, pw-record and pw-play: the voice tap and the microphone path
+pipewire-bin
+# PortAudio's route into the host's PipeWire, for audio add-ons
+pipewire-alsa
+libportaudio2
+# wpctl, which sets the microphone gain through the host's PipeWire socket
+wireplumber

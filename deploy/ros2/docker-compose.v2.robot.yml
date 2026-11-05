@@ -1,0 +1,252 @@
+# EMORI ROS 2 **v2** graph, ON THE ROBOT. The robot node replaces Pollen's daemon.
+#
+# >> BEFORE THE FIRST `up`: STOP AND DISABLE THE DAEMON UNIT. <<
+#
+#   sudo systemctl disable --now reachy-mini-daemon
+#   sudo rm -f /etc/systemd/system/reachy-mini-daemon.service.d/override.conf
+#   sudo systemctl daemon-reload
+#
+# Two things go wrong otherwise and neither announces itself. The daemon holds
+# /dev/ttyAMA3 open, so `RobotBackend` fails to find the serial bus and the node comes up
+# with no motors; and the daemon is listening on :8000, so with `network_mode: host` the
+# shim cannot bind and the hostapp keeps driving the daemon -- a robot that looks like it is
+# running v2 and is running v1. `deploy/robot/ros2_native/README.md` has the full
+# changeover, including the native (no-Docker) route.
+#
+# The hostapp on the robot keeps REACHY_BASE_URL=http://127.0.0.1:8000 completely
+# unchanged: the shim answers the daemon dialect on the daemon's port. That is the whole
+# migration story -- nothing hostapp-side moves in v2.
+#
+# Everything the v1 robot profile hard-set is still hard-set here (host networking,
+# FIWARE off, ROS_LOCALHOST_ONLY, bounded memory/CPU, rotated logs), plus the two new
+# things a node that drives real hardware needs: the serial bus and the camera.
+#
+# MEMORY: the 768m below is sized for REACHY_BACKEND=robot AND NOTHING ELSE. The robot
+# backend never imports MuJoCo -- no model compile, no mesh set, no offscreen GL -- so
+# this profile carries the control loop, the analytical IK and the ROS publishers and
+# little else. Do NOT point this file at the simulator to "debug on the robot": a MuJoCo
+# backend needs the better part of a gigabyte before it renders a frame and will be
+# OOM-killed here, which looks exactly like a crash in our code. The sim compose
+# (deploy/ros2/docker-compose.v2.yml) is the one with room for it.
+#
+#   docker compose -f deploy/ros2/docker-compose.v2.robot.yml up -d
+# With no fence yet, as on a first try by hand, set EMORI_V2_FENCE_FILE=/dev/null for that command.
+services:
+  ros2v2:
+    # The SLIM robot image (deploy/ros2/Dockerfile.v2.robot), not the sim one.
+    # `:latest` is the simulator build: MuJoCo, Mesa/EGL and the dev headers that
+    # compile them, none of which the real backend ever imports. The robot has ~2.7 GB
+    # free on its SD card, so the difference is not a nicety. Build it with
+    #   docker buildx build --platform linux/arm64 -t emori/ros2-jazzy-v2:robot \n    #       -f deploy/ros2/Dockerfile.v2.robot --load .
+    image: emori/ros2-jazzy-v2:robot
+    container_name: emori-ros2-v2
+    # Which launch file this container runs, EMORI_MOTOR_LAUNCH in deploy/ros2/.env beside
+    # this file. v2.launch.py (default) is the robot node with the graph's four nodes, for
+    # the hostapp. robot.launch.py is the robot node alone, for the hub, which hosts those
+    # four itself. deploy/robot/hub-stack.sh --with-motor changes it. A changed value
+    # recreates the container, and that parks and wakes the robot.
+    #
+    # `exec`, so that ros2 launch is the process the stop signal reaches. v2.launch.py turns
+    # REACHY_WIRELESS=1 and WITH_CAMERA_V4L2=0 below into the booleans the node's parameters
+    # need, and robot.launch.py is given them here. hub-stack.sh reads the file's name back
+    # from this command, so no other launch file name may be written in it.
+    command:
+      - bash
+      - -c
+      - >-
+        launch="${EMORI_MOTOR_LAUNCH:-v2.launch.py}";
+        case "$$launch" in
+        robot.*) exec ros2 launch reachy_mini_ros2 "$$launch"
+        wireless_version:=true with_camera_v4l2:=false ;;
+        *) exec ros2 launch emori_adapter_bringup "$$launch" ;;
+        esac
+    # Host networking, so the shim IS 127.0.0.1:8000 for the hostapp and the intake can
+    # keep refusing everything that is not loopback. No `ports:` here: with host
+    # networking a published port is meaningless (and compose warns about it).
+    network_mode: host
+    devices:
+      # The 9-servo bus (6x XL330 Stewart + body yaw + 2 antennas) at 1 Mbaud. This is
+      # the wireless CM4's port; the lite is a CH340 at /dev/ttyUSB0 (USB 1a86:55d3).
+      # Pollen's find_serial_port(wireless_version=True) resolves it, but it is named
+      # explicitly below so a robot with two adapters cannot pick the wrong one.
+      - "/dev/ttyAMA3:/dev/ttyAMA3"
+      # The v4l2loopback node EMORI's camera bridge produces (1280x720 YUY2). Passed
+      # through so a robot whose device is FREE can capture it; on a kiosk robot it is not
+      # free (see WITH_CAMERA_V4L2 below), and the node says so and carries on.
+      - "/dev/video40:/dev/video40"
+      # The camera bridge's SECOND loopback: 320x240 @ 10 fps, the tee branch this node
+      # reads for face look-at. Created at MODULE LOAD (setup-camera-bridge.sh writes
+      # `video_nr=40,41` into /etc/modprobe.d) so it exists before docker.service starts:
+      # `devices:` naming a missing node fails container CREATION outright, and recovers
+      # only through `restart: unless-stopped` backoff.
+      - "/dev/video41:/dev/video41"
+    group_add:
+      # Device nodes are root:dialout and root:video. The container runs as root today,
+      # but these are what make it work the moment it does not.
+      - dialout
+      - video
+    environment:
+      - REACHY_BACKEND=robot
+      - REACHY_WIRELESS=1
+      - REACHY_SERIALPORT=/dev/ttyAMA3
+      - REACHY_REST_PORT=8000
+      # true while the host application still speaks HTTP to :8000. Set false only once
+      # every robot call goes over ROS (the shim then stops listening on that port).
+      - REACHY_REST_SHIM_ENABLED=${REACHY_REST_SHIM_ENABLED:-true}
+      # 0 means "the separate ros-jazzy-v4l2-camera NODE is not running", and on this
+      # image it cannot: that package pulls cv_bridge -> libopencv-dev -> VTK, GDAL,
+      # LLVM and Mesa, 640 MB measured, giving an image the card could not even
+      # `docker load` (load needs ~2x an image's size while it unpacks).
+      #
+      # The camera is still published: the robot node captures the device that
+      # REACHY_VIDEO_DEVICE names itself, through GStreamer (63 MB of plugins; PyGObject was already in the image for
+      # Pollen's media module), so /reachy_mini/camera/image_raw carries frames either
+      # way -- ON A RIG WHERE THE DEVICE IS FREE. This one's is not: v4l2loopback is
+      # loaded with exclusive_caps=Y and hands its buffers to ONE capture consumer,
+      # which is the kiosk's Chromium. Measured: a second consumer gets
+      # `VIDIOC_REQBUFS: Device or resource busy` -- v4l2-ctl and GStreamer alike, so
+      # the ros-jazzy-v4l2-camera route would have failed here too, 640 MB later.
+      #
+      # So the node does NOT read video40. The camera bridge tees a SECOND loopback,
+      # /dev/video41 at 320x240 @ 10 fps, and that is what REACHY_VIDEO_DEVICE names
+      # below. Enable the tee rig-side with EMORI_CAM_ROS_VIDEO_NR=41 in
+      # /etc/default/emori-camera; with it unset the node finds an empty device, logs
+      # the refusal and carries on, exactly as it did before face look-at existed.
+      - WITH_CAMERA_V4L2=0
+      # NOT video40: on a kiosk robot that one belongs to Chromium (exclusive_caps=Y, one
+      # capture consumer). This is the tee.
+      - REACHY_VIDEO_DEVICE=${REACHY_VIDEO_DEVICE:-/dev/video41}
+      # CAPABILITY switch, not a run switch: the node builds the detector but does not
+      # run it until POST /api/emori/gaze {"enabled":true}, which the hostapp sends only
+      # during a training session or while an add-on asks for it. Default OFF at runtime
+      # is what keeps an idle kiosk in a public corridor from running a face detector on
+      # nobody's behalf. Set EMORI_GAZE=0 to not build it at all.
+      - EMORI_GAZE=${EMORI_GAZE:-1}
+      # Detections per second. At 3.0 a person moving slowly read as a head that stepped
+      # and waited. Measured on the CM4 with the kiosk running: YuNet takes 71 ms a frame,
+      # and 5 Hz held /joint_states at 45.4 Hz, 3 Hz at 46.6 Hz, so this stays above the
+      # 45 Hz floor. Lower it first when /joint_states dips; no rebuild needed.
+      - EMORI_GAZE_DETECT_HZ=${EMORI_GAZE_DETECT_HZ:-5.0}
+      # How the head MOVES towards a face and how other moves are aimed at it. The node
+      # reads all five from its environment, and without these lines not one of them
+      # reaches the container (no EMORI_GAZE_ANCHOR and no EMORI_GAZE_LANE, so the
+      # documented off switch would do nothing).
+      # Like everything substituted here, set them in deploy/ros2/.env beside this file
+      # (/opt/emori/deploy/ros2/.env on the robot), NOT /opt/emori/.env. Defaults are the
+      # code's own, so an unset variable changes nothing.
+      #   SERVO_HZ          the follower: detection only moves the goal, this loop glides
+      #                     the head to it; 0 = one write per detection, as before.
+      #   ANCHOR            1 = speech gotos/targets are composed onto the face aim.
+      #   LANE              empty = derived from EMORI_ROS_MOTION_OWNER; a value is obeyed.
+      #   ANCHOR_RECORDED   yaw | full | off: how much of the aim a Pollen recorded move
+      #                     gets (yaw: full pitch puts 16% of frames out of reach).
+      #   RECORDED_BLEND_S  the recorded-move ease-in from the commanded pose; 0 = snap.
+      - EMORI_GAZE_SERVO_HZ=${EMORI_GAZE_SERVO_HZ:-25.0}
+      - EMORI_GAZE_ANCHOR=${EMORI_GAZE_ANCHOR:-1}
+      - EMORI_GAZE_LANE=${EMORI_GAZE_LANE:-}
+      - EMORI_GAZE_ANCHOR_RECORDED=${EMORI_GAZE_ANCHOR_RECORDED:-yaw}
+      - EMORI_RECORDED_BLEND_S=${EMORI_RECORDED_BLEND_S:-0.3}
+      - EMORI_RECORDED_SKIP_LEADIN=${EMORI_RECORDED_SKIP_LEADIN:-1}
+      - EMORI_RECORDED_FIT=${EMORI_RECORDED_FIT:-1}
+      - EMORI_GAZE_MODEL=/opt/emori/models/face_detection_yunet_2026may.onnx
+      # onnxruntime honours intra_op_num_threads=1 for its own pool, but some builds'
+      # MLAS/OpenMP layer reads this instead. On a 2-CPU container an unbounded detector
+      # thread pool is the one thing that can starve the 50 Hz control loop.
+      - OMP_NUM_THREADS=1
+      - EMORI_SOURCE=pokamind
+      - EMORI_WS_URL=${EMORI_WS_URL:-ws://127.0.0.1:8090/ws/relay}
+      # The hostapp is the FIWARE writer on the robot. Both knobs, because the launch file
+      # reads one and the bridge node reads the other.
+      - EMORI_WITH_FIWARE=false
+      - FIWARE_BRIDGE_ENABLED=0
+      # hostapp (default) still means the hostapp's own lane authors expression; the ROS
+      # graph computes and publishes everything and sends nothing. First run on a live
+      # robot stays a non-event even though the robot itself has moved into this container.
+      - EMORI_ROS_MOTION_OWNER=${EMORI_ROS_MOTION_OWNER:-hostapp}
+      - EMORI_SKILL_TRANSPORT=ros_native
+      # The behaviour thresholds the engagement node runs on: the path INSIDE the
+      # container, paired with the read-only bind mount below.
+      - EMORI_BEHAVIOR_CONFIG=/emori/configs/behavior.yaml
+      # What leaves this graph on DDS. ROS_LOCALHOST_ONLY is the only access control
+      # here, so ids are pseudonymous and speech text stays off unless a study needs it.
+      - EMORI_ROS_DEIDENTIFY=${EMORI_ROS_DEIDENTIFY:-1}
+      - EMORI_ROS_SPEECH_TEXT=${EMORI_ROS_SPEECH_TEXT:-0}
+      - EMORI_ROS_ID_SALT=${EMORI_ROS_ID_SALT:-}
+      - RMW_IMPLEMENTATION=rmw_fastrtps_cpp
+      - ROS_LOCALHOST_ONLY=1
+      - ROS_DOMAIN_ID=${ROS_DOMAIN_ID:-42}
+    volumes:
+      # ABSOLUTE default on the robot: install.sh lays the tuning file down at
+      # /opt/emori/configs/, and a relative path here would resolve against whatever
+      # directory systemd started the unit from.
+      - ${EMORI_ROS_BEHAVIOR_CONFIG_HOST:-/opt/emori/configs/behavior.yaml}:/emori/configs/behavior.yaml:ro
+      # The host's copy of the YuNet detector weights, mounted BESIDE the baked copy at
+      # /opt/emori/models -- never over it. A mount on the baked path would shadow the
+      # bake on every normal run, and on a robot where install.sh step 5b has not run
+      # Docker would CREATE the host directory empty and mount that: the detector would
+      # find no model, and a detector that cannot load deliberately never raises the
+      # node's DiagnosticStatus (docs/ros2-v2-native-robot.md), so the robot would look
+      # healthy and simply never look at anybody.
+      #
+      # EMORI_GAZE_MODEL above therefore points at the BAKED path, which is what makes a
+      # fresh container work with no host state at all. To test a model or detector
+      # change without a 45-minute arm64 rebuild, point EMORI_GAZE_MODEL at
+      # /opt/emori/models-host/<file> instead -- and unlike `docker cp` that survives
+      # `compose up -d`, which recreates the container and discards the writable layer.
+      - ${EMORI_MODELS_HOST:-/opt/emori/models}:/opt/emori/models-host:ro
+      # The fence itself. Docker refuses to start a container whose bind source is gone, and this
+      # form tells compose not to create it. So a container Docker brings back after the fence came
+      # down stays down, instead of opening the bus beside Pollen's daemon. Nothing reads the file.
+      # EMORI_V2_FENCE_FILE=/dev/null is for a trial by hand, with no fence: see the README.
+      - type: bind
+        source: ${EMORI_V2_FENCE_FILE:-/opt/emori/V2_OWNS_THE_BUS}
+        target: /run/emori-v2-fence
+        read_only: true
+        bind:
+          create_host_path: false
+    restart: unless-stopped
+    # SIGINT, NOT the default SIGTERM. `ros2 launch` installs a SIGINT handler and does
+    # not act on SIGTERM at all (measured: `docker stop -t 30` on this image
+    # ran the full grace period and ended in a SIGKILL, exit 137, with the node's
+    # shutdown never entered). Under SIGINT launch forwards SIGINT to the node, rclpy
+    # shuts its context down, and `shutdown()` runs -- which is the only path on which
+    # the robot is ever parked and de-torqued.
+    stop_signal: SIGINT
+    # Room to PARK. On `down`/`stop`, the node's shutdown runs
+    # `backend.reset_to_sleep()` -- lift to init, play the sleep trajectory, end
+    # de-torqued at the sleep pose -- which is bounded at 8 s inside the node. Compose's
+    # default grace is 10 s, and a SIGKILL landing mid-trajectory leaves nine servos
+    # torqued at whatever pose the head happened to be in, until the power goes and it
+    # drops. 20 s is the 8 s park plus the shim, the arbiter loop and the backend join.
+    stop_grace_period: 20s
+    # Higher than v1's 512m/1.0. This container carries the 50 Hz motor control loop the
+    # daemon carries on v1 -- Pollen's Rust ReachyMiniPyControlLoop, plus the IK, plus
+    # the ROS publishers at the same rate -- so the budget v1 splits between the daemon
+    # process and the graph has to fit in one place.
+    # 1536m, and the number is measured rather than budgeted. 768m was an estimate
+    # made against the 344 MiB the mockup backend used in a container; on the robot,
+    # the five nodes came to 1156 MB PSS (/proc/<pid>/smaps_rollup, live
+    # session): robot_node 306, skill_facade 181, publisher 177, behaviours 170,
+    # analyzer 168, and the `ros2 launch` supervisor itself 155. Five Python ROS nodes
+    # at ~170 MB each is the shape of rclpy + numpy, not a leak.
+    #
+    # It ran at 768m only because THIS kernel discards the limit entirely:
+    #   `Your kernel does not support memory limit capabilities or the cgroup is not
+    #    mounted. Limitation discarded.` -- and `docker inspect` agrees
+    # (HostConfig.Memory=0). The Pi kernel needs `cgroup_enable=memory` on the boot
+    # cmdline before any of this is enforced. So the old number was not protecting
+    # anything; it was waiting to kill the robot on the first robot that enabled the
+    # controller. 1536m is the measurement plus a third.
+    mem_limit: 1536m
+    # The motor control loop is the process that must not be the OOM killer's pick. With
+    # no memory limit enforced on this kernel, the kernel's choice is the only guard, so
+    # the container's processes get a score well below the default and the other
+    # containers and host services carry the risk. Read it back as -500 in
+    # /proc/<robot_node pid>/oom_score_adj after `up`.
+    oom_score_adj: -500
+    cpus: 2.0
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"

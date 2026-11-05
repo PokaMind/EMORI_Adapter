@@ -1,0 +1,35 @@
+# systemd unit: the screenless Chromium kiosk (Pokamind on a virtual display).
+# Install: sudo cp kiosk.service /etc/systemd/system/emori-kiosk.service
+#          sudo systemctl enable --now emori-kiosk
+#
+# The kiosk opens the hostapp LANDING page (/) — the QR-badge + verbal-menu start
+# screen. (/session is only ever reached via the SSO mint; a bare /session?topic=...
+# is parsed by nothing and would leave the robot on a dead page.)
+[Unit]
+Description=EMORI screenless Chromium kiosk (Pokamind on Xvfb, robot mic/camera/speaker)
+# Exactly one of emori-hostapp.service and emori-hub.service runs the gateway, chosen by
+# the flag file /opt/emori/HUB_IS_ROS; the other is a skipped start, which this unit does
+# not treat as a failure. Neither carries Conflicts=, which would stop the kiosk with it.
+After=emori-hostapp.service emori-hub.service emori-camera-bridge.service emori-voice-delay.service
+Wants=emori-hostapp.service emori-hub.service emori-camera-bridge.service emori-voice-delay.service
+# The page reads its config (menu grammar, confidence gate, capture thresholds) ONCE, at
+# load: server.py substitutes them into the HTML. A running Chromium therefore pins
+# whatever it was served at boot, so redeploying the hostapp alone changes nothing the
+# person in front of the robot can see. PartOf makes systemd restart -- and so RELOAD --
+# the kiosk with the hostapp; After=/Wants= above only order and pull in at START.
+# The same holds for the hub.
+PartOf=emori-hostapp.service emori-hub.service
+
+[Service]
+User=pollen
+Environment=EMORI_KIOSK_URL=http://localhost:8090/
+# Audio: Chromium under a SYSTEM service has no session bus; point it at the user's
+# runtime dir so PipeWire/Pulse (or ALSA via the audio group) can open the speaker.
+# 'pollen' is uid 1000 on the stock image; adjust if different (id -u pollen).
+Environment=XDG_RUNTIME_DIR=/run/user/1000
+ExecStart=/opt/emori/deploy/robot/start-kiosk.sh
+Restart=on-failure
+RestartSec=3
+
+[Install]
+WantedBy=multi-user.target

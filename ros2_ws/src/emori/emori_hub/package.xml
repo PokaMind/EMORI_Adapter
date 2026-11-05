@@ -1,0 +1,38 @@
+<?xml version="1.0"?>
+<?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
+<package format="3">
+  <name>emori_hub</name>
+  <version>0.1.0</version>
+  <description>The hub: the host application's FastAPI app hosted beside rclpy in one
+  process, with its robot client over the native Reachy Mini node's services in place of
+  its REST routes. It implements the adapter core's RobotClient, so the driver and the
+  motion player run on it unchanged.</description>
+  <maintainer email="dev@pokamind.com">Pokamind AB</maintainer>
+  <license>Apache-2.0</license>
+  <url type="repository">https://github.com/pokamind/EMORI_Adapter</url>
+  <url type="bugtracker">https://github.com/pokamind/EMORI_Adapter/issues</url>
+  <author email="dev@pokamind.com">Pokamind AB</author>
+
+  <exec_depend>diagnostic_msgs</exec_depend>
+  <exec_depend>emori_msgs</exec_depend>
+  <exec_depend>rclpy</exec_depend>
+  <exec_depend>reachy_mini_msgs</exec_depend>
+  <exec_depend>std_msgs</exec_depend>
+  <exec_depend>std_srvs</exec_depend>
+  <!-- The graph nodes this process hosts with EMORI_HUB_GRAPH=1. -->
+  <exec_depend>ament_index_python</exec_depend>
+  <exec_depend>emori_adapter_ros</exec_depend>
+  <exec_depend>emori_skill_facade</exec_depend>
+  <exec_depend>emori_skill_native</exec_depend>
+  <exec_depend>hri_context_analyzer</exec_depend>
+  <exec_depend>hri_engagement_behaviors</exec_depend>
+  <!-- emori_adapter is a pip package (the adapter core); it has no rosdep key. -->
+
+  <test_depend>ament_copyright</test_depend>
+  <test_depend>ament_flake8</test_depend>
+  <test_depend>ament_pep257</test_depend>
+
+  <export>
+    <build_type>ament_python</build_type>
+  </export>
+</package>

@@ -1,0 +1,9 @@
+# Cancel a running or queued move; the ROS form of POST /api/move/stop.
+#
+# An empty `move_id` stops EVERYTHING (running plus queued), which is what an operator
+# means by "stop".  Cancelling is Task.cancel() on the coroutine that is driving the
+# backend - exactly the daemon's own stop - so the robot holds its current target
+# rather than snapping anywhere.
+string move_id     # "" = every accepted move, running and queued
+---
+int32 stopped      # how many moves this call actually cancelled (0 is not an error)

@@ -1,0 +1,81 @@
+[Unit]
+Description=EMORI ROS 2 v2 (native, RoboStack) -- the robot node REPLACES reachy-mini-daemon
+Documentation=file:///opt/emori/deploy/robot/ros2_native/README.md
+Documentation=file:///opt/emori/docs/ros2-v2-native-robot.md
+After=network.target
+Wants=network.target
+
+# Conflicts=, and it is the whole point of this unit. reachy_mini_ros2 opens the SAME
+# serial bus the daemon opens and binds the SAME :8000 the daemon binds; both running is
+# not a degraded robot, it is a robot where the motors belong to whichever process won the
+# race. systemd will stop reachy-mini-daemon before starting this, and refuse to start
+# this if the daemon is started afterwards.
+Conflicts=reachy-mini-daemon.service
+
+# Deliberately NO PartOf=/BindsTo= on emori-hostapp, in either direction -- the same rule
+# the v1 container unit follows, and it matters more here: the hostapp talks to the shim
+# in THIS process, so a hostapp restart bouncing the robot would mean a kiosk reload
+# power-cycling the motors. The hostapp's HttpRobotClient reconnects on its own.
+
+[Service]
+Type=simple
+User=pollen
+# dialout (the 1 Mbaud servo bus on /dev/ttyAMA3) and video (/dev/video40). install-native.sh
+# adds pollen to both; this is the reminder for anyone reading the unit instead.
+EnvironmentFile=-/opt/emori/.env
+WorkingDirectory=/opt/emori/ros2_ws
+
+Environment=REACHY_BACKEND=robot
+Environment=REACHY_WIRELESS=1
+Environment=REACHY_SERIALPORT=/dev/ttyAMA3
+Environment=REACHY_REST_PORT=8000
+Environment=WITH_CAMERA_V4L2=1
+Environment=EMORI_SKILL_TRANSPORT=ros_native
+Environment=EMORI_BEHAVIOR_CONFIG=/opt/emori/configs/behavior.yaml
+# No DDS multicast onto a venue's wifi. This is the ONLY access control on the wire, so
+# it is set here rather than left to /opt/emori/.env, where an edit could silently remove
+# it. Same domain id as the v1 container profile.
+Environment=ROS_LOCALHOST_ONLY=1
+Environment=ROS_DOMAIN_ID=42
+Environment=RMW_IMPLEMENTATION=rmw_fastrtps_cpp
+
+# `pixi run` would work but adds a process and a lock check to every start; the env's own
+# ros2 is what the unit should depend on -- but calling that binary DIRECTLY is not
+# enough, and the failure is a quiet one. `ros2 launch` resolves packages through
+# AMENT_PREFIX_PATH / ROS_PACKAGE_PATH / PYTHONPATH, and under systemd none of those
+# exist: there is no login shell, so nothing sources anything. The symptom is
+# `Package 'emori_adapter_bringup' not found`, or -- worse, once the distro's own
+# packages happen to resolve -- a graph that starts without the workspace overlay and
+# silently runs whatever `reachy_mini_ros2` was last installed system-wide.
+#
+# So: a login-ish bash that sources both prefixes, then `exec` so the launch process
+# REPLACES the shell and keeps PID 1 of the cgroup -- otherwise systemd's SIGTERM goes
+# to bash, the launch never hears it, and the robot is SIGKILLed without parking.
+#   1. the RoboStack environment prefix (conda-style `setup.bash` at the env root,
+#      which is what `pixi install` lays down and what install-native.sh sources for
+#      its own colcon build);
+#   2. the colcon workspace overlay, which is where emori_adapter_bringup lives.
+ExecStart=/bin/bash -lc 'source /opt/emori/ros2/.pixi/envs/default/setup.bash && source /opt/emori/ros2_ws/install/setup.bash && exec ros2 launch emori_adapter_bringup v2.launch.py'
+
+Restart=always
+RestartSec=10
+# SIGINT, NOT systemd's default SIGTERM. `ros2 launch` installs a SIGINT handler and
+# does not act on SIGTERM at all (on the v2 image a SIGTERM stop runs the whole grace
+# period and ends in SIGKILL, with the node's shutdown never entered).
+# Under SIGINT launch forwards SIGINT to the node, rclpy shuts its context down, and
+# `shutdown()` runs -- the only path on which the robot is parked and de-torqued.
+# KillMode stays the default (control-group), so the node gets the signal directly too.
+KillSignal=SIGINT
+# Room to PARK before the SIGKILL. The node's shutdown runs `backend.reset_to_sleep()`
+# (lift to init, sleep trajectory, de-torque), bounded at 8 s inside the node; systemd's
+# default TimeoutStopSec on most images is 90 s but is frequently lowered distro-wide,
+# and a SIGKILL landing mid-trajectory leaves nine servos torqued at an arbitrary pose
+# until the power goes and the head drops. 25 s is the 8 s park plus the shim, the
+# arbiter loop and the backend thread join, with margin.
+TimeoutStopSec=25
+# The 50 Hz control loop plus MuJoCo-free IK plus the ROS publishers. Give it room: the
+# containerised profile is capped at 768 MB for the same work.
+MemoryMax=768M
+
+[Install]
+WantedBy=multi-user.target

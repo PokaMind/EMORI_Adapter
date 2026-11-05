@@ -1,0 +1,7 @@
+# /emori/session/voice_menu. The spoken topic menu for a language.
+string lang
+---
+string prompt
+string[] grammar
+string[] option_keys
+string[] option_names

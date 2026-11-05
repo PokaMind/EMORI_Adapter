@@ -1,0 +1,5 @@
+# The ROS form of GET /api/state/full.
+---
+bool ok                 # false: no sample. A default FullState would read as a zero pose
+string error
+FullState state

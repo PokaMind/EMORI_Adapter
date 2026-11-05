@@ -1,0 +1,14 @@
+# systemd unit: copy the host's resolv.conf where the hub container mounts it.
+# Started by emori-hub-resolv.path; there is nothing to enable here.
+#
+# The copy is rewritten in place, so the file keeps its inode and the bind mount shows the
+# new content. glibc re-reads a changed resolv.conf on its own. A bind mount of the host's
+# file itself would keep showing the old one once the host replaced it by rename. With no
+# hub running there is no directory and this does nothing.
+[Unit]
+Description=Copy resolv.conf for the EMORI hub
+
+[Service]
+Type=oneshot
+User=pollen
+ExecStart=/bin/sh -c '[ ! -d /run/emori-hub ] || cat /etc/resolv.conf > /run/emori-hub/resolv.conf'

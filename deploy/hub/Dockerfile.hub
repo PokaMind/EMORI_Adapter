@@ -1,0 +1,15 @@
+# The hub image: Dockerfile.hub-base plus the hub's own files. Built on the robot, with the
+# payload as the build context. COPY only, so no step runs again when a file changes.
+#
+# The adapter core is not in the image. It is the checkout under /opt/emori, bind-mounted
+# by the compose file and put first on the path by emori-hub-site.pth.
+ARG HUB_BASE=emori/hub-base:robot
+FROM ${HUB_BASE}
+COPY hub/emori-hub-site.pth /opt/emori-hub/venv/lib/python3.12/site-packages/
+COPY hub/fastdds_peers.xml /etc/emori/fastdds_peers.xml
+COPY hub/install-delta/ /emori/ros2_ws/install/
+COPY --chmod=755 hub/hub-entry.sh /usr/local/bin/hub-entry.sh
+COPY --chmod=755 hub/pw-record.sh /usr/local/bin/pw-record
+ENTRYPOINT ["/usr/local/bin/hub-entry.sh"]
+ARG EMORI_HUB_SOURCE=unknown
+LABEL org.pokamind.emori.hub-source=$EMORI_HUB_SOURCE

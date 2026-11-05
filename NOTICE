@@ -1,0 +1,13 @@
+EMORI Adapter
+Copyright 2026 Pokamind AB
+
+This product is licensed under the Apache License, Version 2.0 (see LICENSE).
+
+Developed within the EU-funded ARISE project.
+
+This product includes third-party software:
+- Files adapted from Pollen Robotics reachy_mini (Apache-2.0), listed in ros2_ws/src/open/reachy_mini_ros2/THIRD_PARTY_NOTICES.md
+- YuNet face detection model, Copyright (c) 2020 Shiqi Yu (MIT), deploy/ros2/models/LICENSE.face_detection_yunet.txt
+- jsQR, Copyright Cosmo Wolfe (Apache-2.0), src/emori_adapter/hostapp/static/jsqr.js
+
+Pokamind is a separate, closed-source service operated by Pokamind AB; it is not part of this repository.

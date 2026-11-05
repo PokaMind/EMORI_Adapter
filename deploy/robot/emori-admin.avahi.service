@@ -1,0 +1,31 @@
+<?xml version="1.0" standalone='no'?><!--*-nxml-*-->
+<!DOCTYPE service-group SYSTEM "avahi-service.dtd">
+<!--
+  mDNS/Bonjour advert for the on-robot superadmin service.
+
+  Same rationale as emori-dashboard.avahi.service: a screenless appliance on a
+  site LAN has no DNS entry and often a DHCP address nobody wrote down, so a
+  field operator should be able to open "EMORI Admin" from their phone's
+  network browser instead of being told an IP by whoever set the robot up.
+  This advert only helps on the SITE LAN — on the robot's own AP there is no
+  mDNS browser to use, so docs/robot-admin.md instead tells the operator to
+  open http://10.42.0.1:8070 directly.
+
+  Installed by deploy/robot/install.sh to /etc/avahi/services/emori-admin.service.
+  Port 8070 is the standalone emori-admin PROCESS (distinct from the hostapp on
+  8090, which advertises separately as "EMORI Dashboard"). Advertising it is NOT
+  access control: the service is behind EMORI_ADMIN_PIN, and leaving that unset
+  makes every /api/* route answer 503 "not configured" (fail closed).
+
+  Avahi disambiguates a duplicate name across robots by itself ("EMORI Admin
+  #2"), so the literal name below is safe on a multi-robot site.
+-->
+<service-group>
+  <name>EMORI Admin</name>
+  <service>
+    <type>_http._tcp</type>
+    <port>8070</port>
+    <txt-record>path=/</txt-record>
+    <txt-record>product=EMORI</txt-record>
+  </service>
+</service-group>

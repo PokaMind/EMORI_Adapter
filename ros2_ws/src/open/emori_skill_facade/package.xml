@@ -1,0 +1,34 @@
+<?xml version="1.0"?>
+<?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
+<package format="3">
+  <name>emori_skill_facade</name>
+  <version>0.1.0</version>
+  <description>The one component in the EMORI graph allowed to turn a decision into
+  robot motion, and the plug point where that decision leaves ROS. It serves the
+  bounded skill surface (/skill/replay_motion, /skill/look_at, /skill/set_expression)
+  and hands each request to a transport - the hostapp's single-writer /api/skill
+  intake, or another skill transport. Its own package
+  precisely because that boundary should be replaceable without touching the behaviour
+  node that decides.</description>
+  <maintainer email="dev@pokamind.com">Pokamind AB</maintainer>
+  <license>Apache-2.0</license>
+  <url type="repository">https://github.com/pokamind/EMORI_Adapter</url>
+  <url type="bugtracker">https://github.com/pokamind/EMORI_Adapter/issues</url>
+  <author email="dev@pokamind.com">Pokamind AB</author>
+
+  <exec_depend>rclpy</exec_depend>
+  <exec_depend>emori_msgs</exec_depend>
+  <!-- The /diagnostics ledger: six counters an operator can read off a running robot. -->
+  <exec_depend>diagnostic_msgs</exec_depend>
+  <!-- emori_msgs' two actions pull this in; naming it here keeps the node runnable
+       from this package alone, which is what the standalone build proves. -->
+  <exec_depend>action_msgs</exec_depend>
+
+  <test_depend>ament_copyright</test_depend>
+  <test_depend>ament_flake8</test_depend>
+  <test_depend>ament_pep257</test_depend>
+
+  <export>
+    <build_type>ament_python</build_type>
+  </export>
+</package>

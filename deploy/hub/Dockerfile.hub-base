@@ -1,0 +1,22 @@
+# The hub's base image: the motor image plus the hub's system packages and its pinned Python
+# environment. Built on the robot, once, with the payload as the build context
+# (debs/, wheels/). Only a change to constraints-hub.txt or to the package closure rebuilds
+# it, and a hub rebuild only copies files on top (Dockerfile.hub).
+#
+# The packages are the ones named in hub-packages.txt and what they pull in. The closure's
+# libportaudio2 and pipewire-alsa give optional audio add-ons a generic PortAudio path.
+# wireplumber is there for wpctl, which sets the microphone gain through the host's
+# PipeWire socket; pipewire-bin carries pw-record, which the voice tap runs.
+#
+# The debs and wheels are bind-mounted for the steps that use them, so neither is kept in a
+# layer. The payload's wheels/ directory holds the wheels and a copy of constraints-hub.txt.
+ARG MOTOR_IMAGE=emori/ros2-jazzy-v2:robot
+FROM ${MOTOR_IMAGE}
+RUN --mount=type=bind,source=debs,target=/p/debs \
+    apt-get install -y --no-install-recommends /p/debs/*.deb
+RUN --mount=type=bind,source=wheels,target=/p/wheels \
+    python3 -m venv --without-pip --system-site-packages /opt/emori-hub/venv \
+    && pip3 --python /opt/emori-hub/venv/bin/python install --no-index --no-cache-dir \
+         --find-links /p/wheels --no-deps -r /p/wheels/constraints-hub.txt
+ARG EMORI_HUB_BASE_SOURCE=unknown
+LABEL org.pokamind.emori.hub-base-source=$EMORI_HUB_BASE_SOURCE

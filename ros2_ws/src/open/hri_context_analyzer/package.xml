@@ -1,0 +1,33 @@
+<?xml version="1.0"?>
+<?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
+<package format="3">
+  <name>hri_context_analyzer</name>
+  <version>0.1.0</version>
+  <description>Context Analysis Module. Consumes the
+  structured emori_msgs/Context and publishes standardised, REP-155-extension
+  per-person context topics (/humans/persons/&lt;id&gt;/context/&lt;key&gt;) that any
+  downstream behaviour or analytics module can consume. A channel is published only
+  when it was actually observed, so a missing signal never reaches a plot as a
+  confident zero; the reporting flags and the "not reported" sentinel are constants on
+  emori_msgs/Context, readable with `ros2 interface show` and nothing installed. The
+  fan-out rule itself (contracts.py) is pure stdlib Python and imports neither rclpy
+  nor anything EMORI-specific. Open-source, Vulcanexus-compatible.</description>
+  <maintainer email="dev@pokamind.com">Pokamind AB</maintainer>
+  <license>Apache-2.0</license>
+  <url type="repository">https://github.com/pokamind/EMORI_Adapter</url>
+  <url type="bugtracker">https://github.com/pokamind/EMORI_Adapter/issues</url>
+  <author email="dev@pokamind.com">Pokamind AB</author>
+
+  <exec_depend>rclpy</exec_depend>
+  <exec_depend>std_msgs</exec_depend>
+  <exec_depend>hri_msgs</exec_depend>
+  <exec_depend>emori_msgs</exec_depend>
+
+  <test_depend>ament_copyright</test_depend>
+  <test_depend>ament_flake8</test_depend>
+  <test_depend>ament_pep257</test_depend>
+
+  <export>
+    <build_type>ament_python</build_type>
+  </export>
+</package>

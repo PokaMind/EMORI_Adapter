@@ -1,0 +1,62 @@
+{
+  "id": "urn:ngsi-ld:Session:sim-session",
+  "type": "Session",
+  "learner": {
+    "type": "Relationship",
+    "object": "urn:ngsi-ld:Person:learner_01"
+  },
+  "topic": {
+    "type": "Property",
+    "value": "training"
+  },
+  "sessionType": {
+    "type": "Property",
+    "value": "wellbeing"
+  },
+  "@context": "https://uri.etsi.org/ngsi-ld/v1/ngsi-ld-core-context-v1.8.jsonld",
+  "engagementLevel": {
+    "type": "Property",
+    "value": 0,
+    "observedAt": "2026-01-01T00:00:00Z"
+  },
+  "engagementScore": {
+    "type": "Property",
+    "value": 0.001,
+    "observedAt": "2026-01-01T00:00:00Z"
+  },
+  "valence": {
+    "type": "Property",
+    "value": 0.001,
+    "observedAt": "2026-01-01T00:00:00Z"
+  },
+  "arousal": {
+    "type": "Property",
+    "value": 0.001,
+    "observedAt": "2026-01-01T00:00:00Z"
+  },
+  "escalation": {
+    "type": "Property",
+    "value": 0.001,
+    "observedAt": "2026-01-01T00:00:00Z"
+  },
+  "rapport": {
+    "type": "Property",
+    "value": 0.001,
+    "observedAt": "2026-01-01T00:00:00Z"
+  },
+  "attention": {
+    "type": "Property",
+    "value": 0.001,
+    "observedAt": "2026-01-01T00:00:00Z"
+  },
+  "engagementTrend": {
+    "type": "Property",
+    "value": 0.001,
+    "observedAt": "2026-01-01T00:00:00Z"
+  },
+  "dominantStyle": {
+    "type": "Property",
+    "value": "neutral",
+    "observedAt": "2026-01-01T00:00:00Z"
+  }
+}

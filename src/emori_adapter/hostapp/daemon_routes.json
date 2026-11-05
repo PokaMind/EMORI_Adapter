@@ -1,0 +1,31 @@
+{
+  "about": "Every :8000 route this code calls (method + FastAPI path template), generated from the enumeration tests/test_daemon_contract.py checks. emori-readycheck's daemon_routes gate asks the RUNNING :8000 for each route needed on its flavour: v1 = Pollen's reachy-mini daemon, v2 = the robot node's REST shim. fallback: emori-admin answers the route itself (netman/mixer) when :8000 does not. call: a call the code makes on it ({} = a value known only at run time). Generated: do not edit.",
+  "regenerate": "python tests/test_daemon_contract.py --write-manifest",
+  "routes": [
+    {"method": "GET", "path": "/api/daemon/status", "call": "/api/daemon/status", "needed_on": ["v1", "v2"], "fallback": "", "callers": ["src/emori_adapter/admin/host_backend.py", "src/emori_adapter/admin/probes.py", "src/emori_adapter/hostapp/readycheck.py", "src/emori_adapter/robot/client.py"]},
+    {"method": "POST", "path": "/api/emori/gaze", "call": "/api/emori/gaze", "needed_on": ["v2"], "fallback": "", "callers": ["src/emori_adapter/robot/client.py"]},
+    {"method": "POST", "path": "/api/emori/head_reserved", "call": "/api/emori/head_reserved", "needed_on": ["v2"], "fallback": "", "callers": ["src/emori_adapter/robot/client.py"]},
+    {"method": "POST", "path": "/api/media/play_sound", "call": "/api/media/play_sound", "needed_on": ["v1", "v2"], "fallback": "", "callers": ["src/emori_adapter/robot/client.py"]},
+    {"method": "POST", "path": "/api/media/wobbling/disable", "call": "/api/media/wobbling/disable", "needed_on": ["v1", "v2"], "fallback": "", "callers": ["src/emori_adapter/robot/client.py"]},
+    {"method": "POST", "path": "/api/media/wobbling/enable", "call": "/api/media/wobbling/enable", "needed_on": ["v1", "v2"], "fallback": "", "callers": ["src/emori_adapter/robot/client.py"]},
+    {"method": "POST", "path": "/api/motors/set_mode/{mode}", "call": "/api/motors/set_mode/{}", "needed_on": ["v1", "v2"], "fallback": "", "callers": ["src/emori_adapter/robot/client.py"]},
+    {"method": "GET", "path": "/api/motors/status", "call": "/api/motors/status", "needed_on": ["v1", "v2"], "fallback": "", "callers": ["src/emori_adapter/hostapp/readycheck.py"]},
+    {"method": "POST", "path": "/api/move/goto", "call": "/api/move/goto", "needed_on": ["v1", "v2"], "fallback": "", "callers": ["src/emori_adapter/robot/client.py"]},
+    {"method": "POST", "path": "/api/move/play/recorded-move-dataset/{dataset_name:path}/{move_name}", "call": "/api/move/play/recorded-move-dataset/pollen-robotics/reachy-mini-emotions-library/{}", "needed_on": ["v1", "v2"], "fallback": "", "callers": ["src/emori_adapter/robot/client.py"]},
+    {"method": "POST", "path": "/api/move/play/wake_up", "call": "/api/move/play/wake_up", "needed_on": ["v1", "v2"], "fallback": "", "callers": ["src/emori_adapter/robot/client.py"]},
+    {"method": "POST", "path": "/api/move/set_target", "call": "/api/move/set_target", "needed_on": ["v1", "v2"], "fallback": "", "callers": ["src/emori_adapter/robot/client.py"]},
+    {"method": "POST", "path": "/api/move/stop", "call": "/api/move/stop", "needed_on": ["v1", "v2"], "fallback": "", "callers": ["src/emori_adapter/robot/client.py"]},
+    {"method": "GET", "path": "/api/state/full", "call": "/api/state/full", "needed_on": ["v1", "v2"], "fallback": "", "callers": ["src/emori_adapter/robot/client.py"]},
+    {"method": "GET", "path": "/api/volume/current", "call": "/api/volume/current", "needed_on": ["v1"], "fallback": "mixer", "callers": ["src/emori_adapter/admin/audio.py"]},
+    {"method": "GET", "path": "/api/volume/microphone/current", "call": "/api/volume/microphone/current", "needed_on": ["v1"], "fallback": "mixer", "callers": ["src/emori_adapter/admin/audio.py"]},
+    {"method": "POST", "path": "/api/volume/microphone/set", "call": "/api/volume/microphone/set", "needed_on": ["v1"], "fallback": "mixer", "callers": ["src/emori_adapter/admin/audio.py"]},
+    {"method": "POST", "path": "/api/volume/set", "call": "/api/volume/set", "needed_on": ["v1"], "fallback": "mixer", "callers": ["src/emori_adapter/admin/audio.py"]},
+    {"method": "POST", "path": "/api/volume/test-sound", "call": "/api/volume/test-sound", "needed_on": ["v1"], "fallback": "mixer", "callers": ["src/emori_adapter/admin/audio.py"]},
+    {"method": "POST", "path": "/wifi/connect", "call": "/wifi/connect", "needed_on": ["v1"], "fallback": "netman", "callers": ["src/emori_adapter/admin/network.py"]},
+    {"method": "GET", "path": "/wifi/error", "call": "/wifi/error", "needed_on": ["v1"], "fallback": "netman", "callers": ["src/emori_adapter/admin/network.py"]},
+    {"method": "POST", "path": "/wifi/forget", "call": "/wifi/forget", "needed_on": ["v1"], "fallback": "netman", "callers": ["src/emori_adapter/admin/network.py"]},
+    {"method": "POST", "path": "/wifi/scan_and_list", "call": "/wifi/scan_and_list", "needed_on": ["v1"], "fallback": "netman", "callers": ["src/emori_adapter/admin/network.py"]},
+    {"method": "POST", "path": "/wifi/setup_hotspot", "call": "/wifi/setup_hotspot", "needed_on": ["v1"], "fallback": "netman", "callers": ["src/emori_adapter/admin/network.py"]},
+    {"method": "GET", "path": "/wifi/status", "call": "/wifi/status", "needed_on": ["v1"], "fallback": "netman", "callers": ["src/emori_adapter/admin/network.py"]}
+  ]
+}

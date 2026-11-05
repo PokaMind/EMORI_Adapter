@@ -1,0 +1,54 @@
+<?xml version="1.0"?>
+<?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
+<package format="3">
+  <name>reachy_mini_ros2</name>
+  <version>0.1.0</version>
+  <description>The Reachy Mini driven as a native ROS 2 component. The node owns Pollen's
+  transport-free Backend in-process (MuJoCo, mockup or the real serial robot), publishes
+  its 50 Hz state as /joint_states, /reachy_mini/head_pose and TF, serves GoTo and
+  PlayRecordedMove actions plus the wake/sleep/motor/stop/owner services, and arbitrates
+  every request through one motion arbiter with safety &gt; interaction &gt; expression lanes,
+  preemption, drop-if-busy, head reservation and an owner lock. A REST compatibility shim
+  keeps Pollen's daemon dialect alive on the same port, so an existing HTTP client needs
+  no change.</description>
+  <maintainer email="dev@pokamind.com">Pokamind AB</maintainer>
+  <license>Apache-2.0</license>
+  <url type="repository">https://github.com/pokamind/EMORI_Adapter</url>
+  <url type="bugtracker">https://github.com/pokamind/EMORI_Adapter/issues</url>
+  <author email="dev@pokamind.com">Pokamind AB</author>
+
+  <exec_depend>rclpy</exec_depend>
+  <exec_depend>reachy_mini_msgs</exec_depend>
+  <exec_depend>std_msgs</exec_depend>
+  <!-- /joint_states and the sim camera (Image + CameraInfo) -->
+  <exec_depend>sensor_msgs</exec_depend>
+  <!-- PoseStamped on /reachy_mini/head_pose, TransformStamped on /tf -->
+  <exec_depend>geometry_msgs</exec_depend>
+  <exec_depend>tf2_ros</exec_depend>
+  <!-- Trigger (wake_up, goto_sleep) and SetBool (set_head_reserved) -->
+  <exec_depend>std_srvs</exec_depend>
+  <!-- reachy_mini_msgs' two actions pull this in; naming it here keeps the node
+       runnable from this package alone. -->
+  <exec_depend>action_msgs</exec_depend>
+  <!-- The /diagnostics ledger, status name `reachy_mini`. -->
+  <exec_depend>diagnostic_msgs</exec_depend>
+  <!-- REP-155 face tracking: IdsList on /humans/faces/tracked and
+       NormalizedRegionOfInterest2D on /humans/faces/<id>/roi, published by the gaze
+       component. The image already installs ros-jazzy-hri-msgs; declaring it here is
+       what makes the dependency findable by anything that reads this package. -->
+  <exec_depend>hri_msgs</exec_depend>
+
+  <!-- NOT rosdep keys on purpose: `reachy-mini` (with its Rust motor-controller and
+       kinematics wheels), `mujoco`, `numpy`, `scipy`, `fastapi` and `uvicorn` come from
+       pip. rosdep has no keys for them on any distro, and inventing local ones would
+       make this package unbuildable for anybody but us. The image installs them with
+       `pip install "reachy-mini[mujoco]==1.10.0"`; see README.md. -->
+
+  <test_depend>ament_copyright</test_depend>
+  <test_depend>ament_flake8</test_depend>
+  <test_depend>ament_pep257</test_depend>
+
+  <export>
+    <build_type>ament_python</build_type>
+  </export>
+</package>

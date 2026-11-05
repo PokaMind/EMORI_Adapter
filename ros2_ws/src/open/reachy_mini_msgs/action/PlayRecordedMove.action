@@ -1,0 +1,17 @@
+# Play one recorded move from a HuggingFace dataset (85 in the Pollen emotions library).
+#
+# The ROS equivalent of POST /api/move/play/recorded-move-dataset/{dataset}/{name}.
+# Same arbitration fields, same refusal convention, as GoTo: a refused goal SUCCEEDS
+# with `completed=false` and an `error_code`.
+string dataset                # "" = the node's default dataset (the emotions library)
+string name                   # the move name inside that dataset
+string lane                   # safety|interaction|expression ("" = interaction)
+string client                 # who is asking, e.g. hostapp|ros ("" = hostapp)
+bool preempt                  # interaction lane only: cut a running EXPRESSION move short
+string reason                 # provenance for the trace
+---
+bool completed                # true only when the move ran to its end
+string error_code             # "" on success, else the arbiter's refusal/outcome code
+string move_id                # the arbiter's id, also what /reachy_mini/stop takes
+---
+float32 progress              # 0..1

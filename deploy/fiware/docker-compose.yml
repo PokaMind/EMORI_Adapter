@@ -1,0 +1,89 @@
+# EMORI "Powered by FIWARE" analytics stack.
+#
+#   Orion-LD (NGSI-LD context broker, 1026)  --subscription-->  QuantumLeap (8668)
+#        |  current state in MongoDB (27017)                          |  time-series
+#        |                                                            v
+#        +----------------------------------------------------> TimescaleDB (5432) <-- Grafana (3003)
+#
+# Bring up:  docker compose -f deploy/fiware/docker-compose.yml up -d
+# Verify:    curl http://localhost:1026/version ; curl http://localhost:8668/version
+name: emori-fiware
+
+services:
+  mongo-db:
+    image: mongo:4.4
+    container_name: emori-mongo
+    command: --nojournal
+    ports: ["27017:27017"]
+    volumes: ["mongo-data:/data/db"]
+    healthcheck:
+      test: ["CMD", "mongo", "--quiet", "--eval", "db.runCommand('ping').ok"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+
+  orion:
+    image: quay.io/fiware/orion-ld:1.12.0
+    container_name: emori-orion
+    depends_on: [mongo-db]
+    ports: ["1026:1026"]
+    command: -dbhost mongo-db -logLevel WARNING -forwarding -experimental
+    healthcheck:
+      # A real liveness probe (the old `orionld --version ||` prefix always
+      # succeeded, masking a dead broker behind a green healthcheck).
+      test: ["CMD-SHELL", "curl -sf http://localhost:1026/version || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+
+  timescale:
+    image: timescale/timescaledb-ha:pg14-latest
+    container_name: emori-timescale
+    environment:
+      - POSTGRES_USER=postgres
+      # Local lab defaults: change POSTGRES_PASSWORD and GF_SECURITY_ADMIN_PASSWORD before exposing this stack beyond a trusted network
+      - POSTGRES_PASSWORD=postgres
+      - POSTGRES_DB=quantumleap
+    ports: ["5432:5432"]
+    volumes: ["ts-data:/home/postgres/pgdata/data"]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+
+  quantumleap:
+    image: orchestracities/quantumleap:1.0.0  # pinned: :latest broke reproducibility
+    container_name: emori-quantumleap
+    depends_on:
+      timescale:
+        condition: service_healthy
+    ports: ["8668:8668"]
+    environment:
+      - QL_DEFAULT_DB=timescale
+      - POSTGRES_HOST=timescale
+      - POSTGRES_PORT=5432
+      - POSTGRES_DB_NAME=quantumleap
+      - POSTGRES_DB_USER=postgres
+      - POSTGRES_DB_PASS=postgres
+      - POSTGRES_USE_SSL=False
+      - USE_GEOCODING=False
+      - LOGLEVEL=INFO
+
+  grafana:
+    image: grafana/grafana:11.2.0
+    container_name: emori-grafana
+    depends_on: [timescale]
+    ports: ["3003:3000"]
+    environment:
+      - GF_SECURITY_ADMIN_USER=admin
+      # Local lab defaults: change POSTGRES_PASSWORD and GF_SECURITY_ADMIN_PASSWORD before exposing this stack beyond a trusted network
+      - GF_SECURITY_ADMIN_PASSWORD=emori
+      - GF_AUTH_ANONYMOUS_ENABLED=true
+      - GF_AUTH_ANONYMOUS_ORG_ROLE=Viewer
+    volumes:
+      - ./grafana/provisioning:/etc/grafana/provisioning:ro
+
+volumes:
+  mongo-data: {}
+  ts-data: {}

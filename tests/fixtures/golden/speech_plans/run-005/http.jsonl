@@ -1,0 +1,24 @@
+{"body": {"anonymous": false, "demo": true, "name": "", "session_url": "/session?demo=1&sid=<sid:1>"}, "content_type": "application/json", "latency_s": 0.0, "method": "POST", "route": "/api/start", "status": 200, "t": 86284.078}
+{"body": "<html:session>", "content_type": "text/html", "latency_s": 0.014999999999417923, "method": "GET", "route": "/session", "status": 200, "t": 86284.078}
+{"body": {"ok": true}, "content_type": "application/json", "latency_s": 0.0, "method": "POST", "route": "/api/frame-alive", "status": 200, "t": 86284.234}
+{"body": {"level": "ENGAGING", "n": 1, "ok": true, "reasons": ["perk up (engaging)", "lean in"]}, "content_type": "application/json", "latency_s": 0.031000000002677552, "method": "POST", "route": "/api/cycle", "status": 200, "t": 86291.734}
+{"body": {"level": "ENGAGING", "n": 2, "ok": true, "reasons": ["perk up (engaging)", "lean in"]}, "content_type": "application/json", "latency_s": 0.0, "method": "POST", "route": "/api/cycle", "status": 200, "t": 86291.765}
+{"body": {"beats": 7, "n": 1, "ok": true, "spoke": true}, "content_type": "application/json", "latency_s": 0.0, "method": "POST", "route": "/api/cycle", "status": 200, "t": 86295.281}
+{"body": {"ok": true}, "content_type": "application/json", "latency_s": 0.0, "method": "POST", "route": "/api/cycle", "status": 200, "t": 86301.625}
+{"body": {"beats": 2, "n": 2, "ok": true, "spoke": true}, "content_type": "application/json", "latency_s": 0.0, "method": "POST", "route": "/api/cycle", "status": 200, "t": 86302.578}
+{"body": {"beats": 2, "n": 3, "ok": true, "spoke": true}, "content_type": "application/json", "latency_s": 0.0, "method": "POST", "route": "/api/cycle", "status": 200, "t": 86306.64}
+{"body": {"level": "ENGAGING", "n": 3, "ok": true, "reasons": ["perk up (engaging)", "lean in"]}, "content_type": "application/json", "latency_s": 0.0, "method": "POST", "route": "/api/cycle", "status": 200, "t": 86306.781}
+{"body": {"ok": true}, "content_type": "application/json", "latency_s": 0.0, "method": "POST", "route": "/api/cycle", "status": 200, "t": 86308.562}
+{"body": {"beats": 2, "n": 4, "ok": true, "spoke": true}, "content_type": "application/json", "latency_s": 0.0, "method": "POST", "route": "/api/cycle", "status": 200, "t": 86309.515}
+{"body": {"ok": true}, "content_type": "application/json", "latency_s": 0.0, "method": "POST", "route": "/api/cycle", "status": 200, "t": 86311.156}
+{"body": {"beats": 7, "n": 5, "ok": true, "spoke": true}, "content_type": "application/json", "latency_s": 0.0, "method": "POST", "route": "/api/cycle", "status": 200, "t": 86312.109}
+{"body": {"ok": true}, "content_type": "application/json", "latency_s": 0.0, "method": "POST", "route": "/api/cycle", "status": 200, "t": 86318.468}
+{"body": {"beats": 2, "n": 6, "ok": true, "spoke": true}, "content_type": "application/json", "latency_s": 0.014999999999417923, "method": "POST", "route": "/api/cycle", "status": 200, "t": 86319.406}
+{"body": {"ok": true}, "content_type": "application/json", "latency_s": 0.0, "method": "POST", "route": "/api/cycle", "status": 200, "t": 86321.562}
+{"body": {"level": "ENGAGING", "n": 4, "ok": true, "reasons": ["perk up (engaging)", "lean in"]}, "content_type": "application/json", "latency_s": 0.0, "method": "POST", "route": "/api/cycle", "status": 200, "t": 86321.765}
+{"body": {"beats": 2, "n": 7, "ok": true, "spoke": true}, "content_type": "application/json", "latency_s": 0.0, "method": "POST", "route": "/api/cycle", "status": 200, "t": 86322.515}
+{"body": {"ok": true}, "content_type": "application/json", "latency_s": 0.0, "method": "POST", "route": "/api/cycle", "status": 200, "t": 86324.515}
+{"body": {"beats": 2, "n": 8, "ok": true, "spoke": true}, "content_type": "application/json", "latency_s": 0.0, "method": "POST", "route": "/api/cycle", "status": 200, "t": 86325.468}
+{"body": {"ok": true}, "content_type": "application/json", "latency_s": 0.0, "method": "POST", "route": "/api/cycle", "status": 200, "t": 86325.703}
+{"body": {"avg_engagement": 0.565, "completed": true, "dominant_style": "neutral", "next_url": "/", "ok": true, "summary": "That's the end of our practice. Your engagement averaged 56 percent, and you were most often neutral. Attention dipped a few times - slowing down and reflecting back can help.", "summary_tts_url": "/api/tts?lang=en&text=That%27s%20the%20end%20of%20our%20practice.%20Your%20engagement%20averaged%2056%20percent%2C%20and%20you%20were%20most%20often%20neutral.%20Attention%20dipped%20a%20few%20times%20-%20slowing%20down%20and%20reflecting%20back%20can%20help."}, "content_type": "application/json", "latency_s": 0.0, "method": "POST", "route": "/api/cycle", "status": 200, "t": 86325.703}
+{"body": "<html:landing_after>", "content_type": "text/html", "latency_s": 0.0, "method": "GET", "route": "/", "status": 200, "t": 86325.703}

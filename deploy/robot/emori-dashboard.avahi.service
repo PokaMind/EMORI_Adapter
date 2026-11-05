@@ -1,0 +1,27 @@
+<?xml version="1.0" standalone='no'?><!--*-nxml-*-->
+<!DOCTYPE service-group SYSTEM "avahi-service.dtd">
+<!--
+  mDNS/Bonjour advert for the on-robot management dashboard.
+
+  The robot is a screenless appliance on a local network with no DNS entry and,
+  often, a DHCP address nobody wrote down. A manager should be able to open
+  "EMORI Dashboard" from the network browser of a phone or laptop on the same
+  LAN instead of being told an IP by whoever set the robot up.
+
+  Installed by deploy/robot/install.sh to /etc/avahi/services/emori-dashboard.service.
+  Port 8090 is the hostapp itself (the dashboard is mounted on the same FastAPI app,
+  not a second process). Advertising it is NOT access control: the dashboard is
+  behind the shared EMORI_DASH_PASSWORD, and leaving that unset keeps it closed.
+
+  Avahi disambiguates a duplicate name across robots by itself ("EMORI Dashboard #2"),
+  so the literal name below is safe on a multi-robot site.
+-->
+<service-group>
+  <name>EMORI Dashboard</name>
+  <service>
+    <type>_http._tcp</type>
+    <port>8090</port>
+    <txt-record>path=/dashboard</txt-record>
+    <txt-record>product=EMORI</txt-record>
+  </service>
+</service-group>

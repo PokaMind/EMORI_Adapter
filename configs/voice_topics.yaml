@@ -1,0 +1,29 @@
+# Screenless verbal topic menu: a spoken number -> a Pokamind module.
+# The robot speaks `prompt`, listens, and the recognised words are matched to an option
+# (see emori_adapter.hostapp.voice_topics.VoiceMenu.match). The chosen `module_id` is
+# carried through partner SSO so Pokamind starts that module directly (no topic screen).
+#
+# Development menu for the simulator (placeholder module ids).
+# A robot does not use it: it builds its menu from its Pokamind record (configs/site/auto/),
+# or speaks the one saved on the phone admin page (configs/site/voice_topics.en.yaml).
+# EMORI_VOICE_TOPICS_EN outranks both.
+
+prompt: >-
+  Welcome. To choose your practice, say one for Active Listening, two for Giving
+  Feedback, or three for Time Management.
+
+options:
+  "1":
+    module_id: dev-en-module-1
+    name: Active Listening
+    keywords: [active listening, listening, active]
+  "2":
+    module_id: dev-en-module-2
+    name: Giving Feedback
+    keywords: [giving feedback, feedback, giving]
+  "3":
+    module_id: dev-en-module-3
+    name: Time Management
+    keywords: [time management, management, time]
+
+default: "1"

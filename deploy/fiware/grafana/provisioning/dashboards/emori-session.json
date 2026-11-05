@@ -1,0 +1,141 @@
+{
+  "title": "EMORI Session",
+  "uid": "emori-session",
+  "tags": ["emori", "pokamind"],
+  "timezone": "browser",
+  "schemaVersion": 39,
+  "version": 1,
+  "refresh": "5s",
+  "time": { "from": "now-30m", "to": "now" },
+  "templating": {
+    "list": [
+      {
+        "name": "session",
+        "label": "Session",
+        "type": "query",
+        "datasource": { "type": "postgres", "uid": null, "name": "EMORI-TimescaleDB" },
+        "query": "SELECT DISTINCT entity_id FROM mtpokamind.etsession ORDER BY 1 DESC",
+        "refresh": 2,
+        "sort": 0,
+        "includeAll": false,
+        "multi": false
+      }
+    ]
+  },
+  "panels": [
+    {
+      "id": 1,
+      "title": "Engagement / escalation / rapport / attention",
+      "type": "timeseries",
+      "gridPos": { "h": 9, "w": 16, "x": 0, "y": 0 },
+      "datasource": { "type": "postgres", "name": "EMORI-TimescaleDB" },
+      "fieldConfig": { "defaults": { "min": 0, "max": 1, "custom": { "lineWidth": 2, "fillOpacity": 8 } }, "overrides": [] },
+      "targets": [
+        {
+          "refId": "A",
+          "format": "time_series",
+          "rawSql": "SELECT time_index AS \"time\", engagementscore AS \"engagement\", escalation, rapport, attention FROM mtpokamind.etsession WHERE entity_id = '$session' AND $__timeFilter(time_index) ORDER BY 1"
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "title": "Engagement level (REP-155)",
+      "type": "state-timeline",
+      "gridPos": { "h": 5, "w": 8, "x": 16, "y": 0 },
+      "datasource": { "type": "postgres", "name": "EMORI-TimescaleDB" },
+      "fieldConfig": {
+        "defaults": {
+          "mappings": [
+            { "type": "value", "options": {
+              "0": { "text": "UNKNOWN", "color": "text" },
+              "1": { "text": "DISENGAGED", "color": "red" },
+              "2": { "text": "ENGAGING", "color": "yellow" },
+              "3": { "text": "ENGAGED", "color": "green" },
+              "4": { "text": "DISENGAGING", "color": "orange" } } }
+          ]
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "format": "time_series",
+          "rawSql": "SELECT time_index AS \"time\", engagementlevel AS \"level\" FROM mtpokamind.etsession WHERE entity_id = '$session' AND $__timeFilter(time_index) ORDER BY 1"
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "title": "Avg engagement (summary)",
+      "type": "stat",
+      "gridPos": { "h": 4, "w": 8, "x": 16, "y": 5 },
+      "datasource": { "type": "postgres", "name": "EMORI-TimescaleDB" },
+      "fieldConfig": { "defaults": { "min": 0, "max": 1, "unit": "percentunit", "thresholds": { "mode": "absolute", "steps": [ { "color": "red", "value": null }, { "color": "yellow", "value": 0.4 }, { "color": "green", "value": 0.6 } ] } }, "overrides": [] },
+      "targets": [
+        {
+          "refId": "A",
+          "format": "table",
+          "rawSql": "SELECT avgengagement FROM mtpokamind.etsession WHERE entity_id = '$session' AND avgengagement IS NOT NULL ORDER BY time_index DESC LIMIT 1"
+        }
+      ]
+    },
+    {
+      "id": 4,
+      "title": "Valence / arousal",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 9 },
+      "datasource": { "type": "postgres", "name": "EMORI-TimescaleDB" },
+      "fieldConfig": { "defaults": { "min": -1, "max": 1, "custom": { "lineWidth": 2 } }, "overrides": [] },
+      "targets": [
+        {
+          "refId": "A",
+          "format": "time_series",
+          "rawSql": "SELECT time_index AS \"time\", valence, arousal FROM mtpokamind.etsession WHERE entity_id = '$session' AND $__timeFilter(time_index) ORDER BY 1"
+        }
+      ]
+    },
+    {
+      "id": 5,
+      "title": "Dominant communication style over the session",
+      "type": "barchart",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 9 },
+      "datasource": { "type": "postgres", "name": "EMORI-TimescaleDB" },
+      "targets": [
+        {
+          "refId": "A",
+          "format": "table",
+          "rawSql": "SELECT dominantstyle AS \"style\", count(*) AS \"cycles\" FROM mtpokamind.etsession WHERE entity_id = '$session' AND dominantstyle IS NOT NULL GROUP BY dominantstyle ORDER BY 2 DESC"
+        }
+      ]
+    },
+    {
+      "id": 6,
+      "title": "Spoken session summary",
+      "type": "table",
+      "gridPos": { "h": 5, "w": 24, "x": 0, "y": 17 },
+      "datasource": { "type": "postgres", "name": "EMORI-TimescaleDB" },
+      "targets": [
+        {
+          "refId": "A",
+          "format": "table",
+          "rawSql": "SELECT time_index AS \"finished\", sessionsummary AS \"summary\" FROM mtpokamind.etsession WHERE entity_id = '$session' AND sessionsummary IS NOT NULL ORDER BY time_index DESC LIMIT 1"
+        }
+      ]
+    },
+    {
+      "id": 7,
+      "title": "Recent sessions",
+      "type": "table",
+      "gridPos": { "h": 6, "w": 24, "x": 0, "y": 22 },
+      "datasource": { "type": "postgres", "name": "EMORI-TimescaleDB" },
+      "targets": [
+        {
+          "refId": "A",
+          "format": "table",
+          "rawSql": "SELECT entity_id AS \"session\", min(time_index) AS \"started\", max(time_index) AS \"last update\", count(*) AS \"rows\" FROM mtpokamind.etsession GROUP BY entity_id ORDER BY 3 DESC LIMIT 20"
+        }
+      ]
+    }
+  ]
+}

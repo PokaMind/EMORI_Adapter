@@ -1,0 +1,40 @@
+{
+ "events": [
+  {
+   "kind": "session_started",
+   "session_id": "<sid:1>"
+  },
+  {
+   "kind": "session_started",
+   "session_id": "<sid:2>"
+  }
+ ],
+ "sessions": [
+  {
+   "avg_engagement": 0.565,
+   "cycles": 2,
+   "dominant_style": "neutral",
+   "end_reason": "preempted",
+   "is_roleplay": 1,
+   "lang": "en",
+   "module_id": "",
+   "performance_scores": null,
+   "session_id": "<sid:1>",
+   "status": "abandoned",
+   "topic": ""
+  },
+  {
+   "avg_engagement": 0.565,
+   "cycles": 2,
+   "dominant_style": "neutral",
+   "end_reason": null,
+   "is_roleplay": 1,
+   "lang": "en",
+   "module_id": "",
+   "performance_scores": "{\"overall\": 71, \"listening\": 68}",
+   "session_id": "<sid:2>",
+   "status": "completed",
+   "topic": ""
+  }
+ ]
+}

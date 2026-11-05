@@ -1,0 +1,61 @@
+# The STANDALONE image: ROS 2 Humble + hri_msgs + the four publishable EMORI packages,
+# and not one line of the EMORI application.
+#
+# This image exists to keep a promise honest. `emori_msgs`, `hri_context_analyzer`,
+# `hri_engagement_behaviors` and `emori_skill_facade` are Apache-2.0 and are meant to be
+# usable by someone who has never heard of Pokamind (see LICENSING.md). The cheap version
+# of that claim is a test that greps for imports; the expensive version is this build,
+# which has no EMORI core installed at all and therefore cannot be fooled by one. If a
+# package ever reaches back into the application, `colcon build` still succeeds and the
+# node dies on `ros2 run` with an ImportError -- which the smoke below reports as a
+# missing node.
+#
+# Build context is the repo root:
+#   docker build -t emori/ros-standalone:amd64 -f deploy/ros2/Dockerfile.standalone .
+#   docker buildx build --platform linux/amd64 --load \
+#       -t emori/ros-standalone:amd64 -f deploy/ros2/Dockerfile.standalone .
+# Run:
+#   docker run --rm emori/ros-standalone:amd64
+# `scripts/ros_standalone_check.py` does both and prints the node list.
+FROM ros:humble-ros-base
+
+ENV DEBIAN_FRONTEND=noninteractive
+SHELL ["/bin/bash", "-c"]
+
+# hri_msgs is the ROS4HRI interface package (2.1.0 on the Humble index); colcon builds
+# the workspace; python3-yaml is what the behaviour policy reads its tuning file with.
+# Deliberately nothing else: no build tooling for wheels, no Python package installer.
+# An image that CAN install the core is an image somebody will eventually install it in,
+# and then this build stops proving anything.
+RUN apt-get update && apt-get install -y --no-install-recommends \
+        ros-humble-hri-msgs \
+        python3-colcon-common-extensions \
+        python3-yaml \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /emori/ros2_ws
+
+# The four packages, one COPY each, named in full. A `COPY ros2_ws ./ros2_ws` would drag
+# in `emori_adapter_ros` (which imports the emori_adapter core by design) and quietly turn
+# this image back into the full one. Not `COPY ros2_ws/src/open` either: that directory
+# also holds `reachy_mini_ros2`, which needs Pollen's Python SDK this image cannot install.
+COPY ros2_ws/src/open/emori_msgs               src/open/emori_msgs
+COPY ros2_ws/src/open/hri_context_analyzer     src/open/hri_context_analyzer
+COPY ros2_ws/src/open/hri_engagement_behaviors src/open/hri_engagement_behaviors
+COPY ros2_ws/src/open/emori_skill_facade       src/open/emori_skill_facade
+
+# emori_msgs first: both Python packages declare it as a dependency, so colcon orders it
+# ahead of them, and `hri_context_analyzer` reads `Context.REPORT_*` at import time -- a
+# node started against a stale generated message is an AttributeError, not a warning.
+RUN source /opt/ros/humble/setup.bash \
+    && colcon build --event-handlers console_direct+
+
+# All three nodes live in one container, so keep DDS on loopback: a smoke run must not
+# discover (or be discovered by) a real graph on the same host.
+ENV ROS_LOCALHOST_ONLY=1
+
+COPY deploy/ros2/standalone_smoke.sh /standalone_smoke.sh
+COPY deploy/ros2/entrypoint.sh /entrypoint.sh
+RUN chmod +x /standalone_smoke.sh /entrypoint.sh
+ENTRYPOINT ["/entrypoint.sh"]
+CMD ["/standalone_smoke.sh"]

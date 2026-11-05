@@ -1,0 +1,28 @@
+# Move the head / antennas / body yaw to a target over `duration` seconds.
+#
+# The ROS equivalent of the daemon's POST /api/move/goto, with the arbitration the host
+# application keeps to itself on v1 made explicit: `lane` and `client` say WHO is asking
+# and with what priority (safety > interaction > expression), `preempt` says whether an
+# interaction goal may cut a running expression move short.
+#
+# A refusal is a SUCCEEDED goal with `completed=false` and an `error_code`, never an
+# aborted one: "the arbiter decided not to" is an answer, not a fault, and the caller
+# must be able to tell the two apart.
+bool use_head                 # when false, head_pose is ignored
+geometry_msgs/Pose head_pose  # head frame relative to base_link; metres and a unit quaternion
+bool use_antennas             # when false, antennas is ignored
+float32[2] antennas           # [right, left] in radians - the daemon's wire order
+bool use_body_yaw             # when false, body_yaw is ignored
+float32 body_yaw              # radians
+float32 duration              # seconds
+string interpolation          # linear|minjerk|ease_in_out|cartoon ("" = minjerk)
+string lane                   # safety|interaction|expression ("" = interaction)
+string client                 # who is asking, e.g. hostapp|ros ("" = hostapp)
+bool preempt                  # interaction lane only: cut a running EXPRESSION move short
+string reason                 # provenance for the trace
+---
+bool completed                # true only when the move ran to its end
+string error_code             # "" on success, else the arbiter's refusal/outcome code
+string move_id                # the arbiter's id, also what /reachy_mini/stop takes
+---
+float32 progress              # 0..1

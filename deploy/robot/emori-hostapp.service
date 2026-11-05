@@ -1,0 +1,49 @@
+# systemd unit: the EMORI hostapp — THE live-session hub and the single robot driver.
+# It serves the kiosk pages, mints partner SSO, drives the daemon from /api/cycle,
+# historizes to FIWARE, broadcasts /ws/relay (ROS 2 + recorder), speaks via Piper
+# (/api/tts), listens via Vosk (/api/stt), and emails the results report.
+#
+# Install: sudo cp emori-hostapp.service /etc/systemd/system/emori-hostapp.service
+#          sudo systemctl enable --now emori-hostapp
+#
+# Configuration lives in /opt/emori/.env (copy .env.example; the hostapp loads it
+# itself via python-dotenv, EnvironmentFile is belt-and-braces for ExecStart vars),
+# plus what the admin page saved on this robot (configs/site/settings.env,
+# secrets/site.env, secrets/admin.env), which outranks .env.
+[Unit]
+Description=EMORI host app (kiosk hub: SSO + robot driver + FIWARE + relay + speech)
+After=network-online.target reachy-mini-daemon.service
+Wants=network-online.target
+
+[Service]
+User=pollen
+# Audio uses exact ALSA/PortAudio devices.  This group and runtime directory are
+# deployment requirements; do not rely on a desktop's default audio selection when
+# the hostapp is started by systemd.
+SupplementaryGroups=audio
+Environment=XDG_RUNTIME_DIR=/run/user/1000
+# Runtime-created diagnostic material must not be group/world readable.
+UMask=0077
+WorkingDirectory=/opt/emori
+EnvironmentFile=-/opt/emori/.env
+# The robot-local settings layer (src/emori_adapter/site_settings.py), in precedence
+# order: a later file wins, exactly as site_settings.apply ranks them (admin over .env).
+# Each is optional ('-'); the process re-reads all three itself at start anyway.
+EnvironmentFile=-/opt/emori/configs/site/settings.env
+EnvironmentFile=-/opt/emori/secrets/site.env
+EnvironmentFile=-/opt/emori/secrets/admin.env
+# An optional add-on can hold the start until something it opens once at startup exists.
+# addon-prestart.sh runs each addons/*/deploy/pre-start.sh and always exits 0, so a
+# robot without an add-on, or without the device, still boots. The '-' keeps a failure
+# of the runner itself from blocking the start.
+ExecStartPre=-/bin/sh /opt/emori/deploy/robot/addon-prestart.sh
+ExecStart=/opt/emori/.venv/bin/emori-hostapp
+Restart=on-failure
+RestartSec=3
+# A stop is bounded: the shutdown joins its workers within ~9 s and finalizes nothing (a
+# session left active is closed as interrupted at the next start), so systemd's default
+# 90 s only ever waited on a wedged audio stream, past the admin page's 30 s restart.
+TimeoutStopSec=12
+
+[Install]
+WantedBy=multi-user.target

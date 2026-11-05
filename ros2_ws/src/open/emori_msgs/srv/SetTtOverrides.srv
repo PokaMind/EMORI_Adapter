@@ -1,0 +1,7 @@
+# /emori/session/set_tt_overrides. Patches the in-session turn-taking overrides. Refused
+# unless the hub runs with EMORI_TT_INJECT_HTTP=1.
+string patch_json
+---
+bool ok
+uint32 rev
+string error_code

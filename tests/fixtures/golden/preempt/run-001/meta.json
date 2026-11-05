@@ -1,0 +1,15 @@
+{
+ "schema": 1,
+ "scenario": "preempt",
+ "label": "one",
+ "mode": "sim",
+ "kind": "scripted",
+ "fast": true,
+ "voiced": false,
+ "untimed": [],
+ "self_check": [],
+ "lang": "en",
+ "wall0": 1793691804.118386,
+ "commit": "ccbd3c8",
+ "t0": 86327.609
+}

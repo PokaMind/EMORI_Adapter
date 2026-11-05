@@ -1,0 +1,36 @@
+<?xml version="1.0"?>
+<?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
+<package format="3">
+  <name>reachy_mini_msgs</name>
+  <version>0.1.0</version>
+  <description>ROS 2 interfaces for a Reachy Mini driven as a native ROS component rather
+  than through Pollen's HTTP daemon: MotionStatus (what the motion arbiter is doing and
+  who owns it), BodyTarget (one streaming pose target), the GoTo and PlayRecordedMove
+  actions, and the SetMotorMode / StopMove / SetOwner services. Units are metres and
+  radians throughout and antennas are ordered [right, left], matching Pollen's own wire
+  order so a message and a daemon payload never mean different things.</description>
+  <maintainer email="dev@pokamind.com">Pokamind AB</maintainer>
+  <license>Apache-2.0</license>
+  <url type="repository">https://github.com/pokamind/EMORI_Adapter</url>
+  <url type="bugtracker">https://github.com/pokamind/EMORI_Adapter/issues</url>
+  <author email="dev@pokamind.com">Pokamind AB</author>
+
+  <buildtool_depend>ament_cmake</buildtool_depend>
+  <buildtool_depend>rosidl_default_generators</buildtool_depend>
+
+  <!-- BodyTarget.header -->
+  <depend>std_msgs</depend>
+  <!-- BodyTarget.head_pose and GoTo.head_pose are geometry_msgs/Pose -->
+  <depend>geometry_msgs</depend>
+  <!-- FullState.stamp -->
+  <depend>builtin_interfaces</depend>
+  <!-- GoTo.action / PlayRecordedMove.action: rosidl needs action_msgs to generate them -->
+  <depend>action_msgs</depend>
+
+  <exec_depend>rosidl_default_runtime</exec_depend>
+  <member_of_group>rosidl_interface_packages</member_of_group>
+
+  <export>
+    <build_type>ament_cmake</build_type>
+  </export>
+</package>

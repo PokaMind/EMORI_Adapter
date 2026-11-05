@@ -1,0 +1,26 @@
+<!doctype html><html><head><meta charset=utf-8>
+<meta name=viewport content="width=device-width,initial-scale=1">
+<title>EMORI training</title><style>
+body{font-family:system-ui,sans-serif;margin:0;display:grid;place-items:center;height:100vh;background:#0f1220;color:#eef}
+.card{background:#171a2b;padding:32px 36px;border-radius:18px;box-shadow:0 10px 40px #0008;width:min(92vw,420px)}
+h1{font-size:20px;margin:0 0 4px}p{color:#9aa;margin:0 0 20px;font-size:13px}
+label{display:block;font-size:12px;color:#9aa;margin:12px 0 4px}
+input{width:100%;padding:10px 12px;border-radius:10px;border:1px solid #333;background:#0f1220;color:#eef;box-sizing:border-box}
+button{margin-top:22px;width:100%;padding:14px;border:0;border-radius:12px;background:#5b6cff;color:#fff;font-size:16px;cursor:pointer}
+.demo{margin-top:14px;font-size:11px;color:#778}
+</style></head><body><div class=card>
+<h1>Start a training session</h1><p>Identify yourself to begin. The robot will join you.</p>
+<label>Staff ID / badge</label><input id=sid value=learner_01>
+<label>Email</label><input id=email value=learner@example.org>
+<label>Module (optional)</label><input id=module placeholder="leave blank to choose on Pokamind">
+<button onclick=start()>Start training</button>
+<div class=demo id=demo></div></div>
+<script>
+if(true){document.getElementById('demo').textContent='DEMO mode: no real Pokamind configured; synthetic analysis will drive the robot.'}
+async function start(){
+  const body={student_id:sid.value,email:email.value,module_id:module.value||null};
+  const r=await fetch('/api/start',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(body)});
+  const d=await r.json(); if(typeof stopSpeech==='function') stopSpeech();
+  location.href=d.session_url;
+}
+</script></body></html>

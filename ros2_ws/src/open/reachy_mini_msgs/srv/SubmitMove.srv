@@ -1,0 +1,22 @@
+# arbiter.submit, returning on ACCEPTANCE exactly like the REST move routes.
+# float64, not the action's float32, so the value matches the JSON wire.
+string kind             # goto|wake_up|goto_sleep|play_recorded|set_target
+string lane             # safety|interaction|expression
+string client           # arbiter client name
+bool use_head
+PoseRpy head_pose
+bool use_antennas
+float64[2] antennas     # [right, left] radians
+bool use_body_yaw
+float64 body_yaw
+float64 duration
+string interpolation    # linear|minjerk|ease_in_out|cartoon
+string dataset
+string move
+bool preempt
+bool supersede          # replace this client's older motion in the same lane (X-Reachy-Supersede)
+string reason           # carries the plan id and trace tag, the part REST sends in X-Reachy-Trace
+---
+bool accepted
+string error_code       # the arbiter's refusal vocabulary
+string move_id          # what StopMove takes

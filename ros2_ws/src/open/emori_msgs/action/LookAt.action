@@ -1,0 +1,15 @@
+# Point the head at a bounded direction.  Served by skill_facade, which translates
+# the goal into POST /api/skill {"skill":"look_at", ...} - the hostapp is the single
+# robot writer, so this action never touches the daemon.
+#
+# The ranges mirror the /api/skill contract exactly; a goal outside
+# them would come back a 400, so callers clamp before sending.
+float32 yaw_deg      # -30..30
+float32 pitch_deg    # -25..25
+float32 duration     # 0.2..1.5 seconds
+string  reason       # provenance for the trace
+---
+bool    reached
+string  error_code   # "" on success, else the /api/skill error_code
+---
+float32 progress     # 0..1

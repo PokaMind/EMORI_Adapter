@@ -1,0 +1,14 @@
+# A TEST-ONLY sample roster: two made-up staff badges and a course of their own.
+# configs/roster.example.yaml ships nobody, so a test that scans a badge points
+# EMORI_ROSTER at a COPY of this file (tests/conftest.py ``sample_roster``); never at
+# this tracked file, which People-tab tests would otherwise rewrite.
+course_id: emori-demo
+staff:
+  "EMORI:anna-001":
+    student_id: anna-001
+    email: anna@example.org
+    name: "Anna Example"
+  "EMORI:marc-002":
+    student_id: marc-002
+    email: marc@example.org
+    name: "Marc Example"

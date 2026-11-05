@@ -1,0 +1,17 @@
+# systemd unit: the short delay on the kiosk's voice. See voice-delay.sh.
+# Install: sudo cp emori-voice-delay.service /etc/systemd/system/
+#          sudo systemctl enable --now emori-voice-delay
+[Unit]
+Description=EMORI voice delay (the head hears each word before the room does)
+Before=emori-kiosk.service
+
+[Service]
+User=pollen
+# The same user PipeWire that the kiosk and the hostapp reach.
+Environment=XDG_RUNTIME_DIR=/run/user/1000
+ExecStart=/opt/emori/deploy/robot/voice-delay.sh
+Restart=on-failure
+RestartSec=3
+
+[Install]
+WantedBy=multi-user.target

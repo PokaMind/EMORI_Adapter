@@ -1,0 +1,157 @@
+name: CI
+on:
+  push:
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        # 3.13 = the CM4 robot OS (Debian Trixie); 3.12 = the Windows sim venv.
+        python-version: ["3.10", "3.12", "3.13"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+      - name: Install
+        run: pip install -e ".[dev,hostapp,pokamind]"
+      - name: Lint
+        run: ruff check src tests tests_ros
+      - name: Test (incl. the full e2e session replay)
+        run: pytest tests
+      # tests_ros/ needs a real rclpy and runs in `ros2-hub`. Here it must collect and
+      # skip, which is what a development computer without ROS sees.
+      - name: The ROS tests collect and skip without rclpy
+        run: |
+          out=$(pytest tests_ros -rs)
+          echo "$out"
+          grep -q "rclpy is not importable here" <<<"$out"
+
+  # The four Apache-2.0 packages, built and RUN with no EMORI application anywhere in
+  # the image. `tests/test_ros_standalone.py` greps for `emori_adapter` imports, which is
+  # cheap and can be fooled by an indirect one; this cannot. An ament_python package
+  # builds perfectly while its node imports something that is not there, so the build is
+  # not the evidence -- the node list is.
+  ros2-standalone:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+      - name: Build the standalone image (four packages, no core)
+        run: |
+          docker buildx build --platform linux/amd64 --load \
+            -t emori/ros-standalone:amd64 -f deploy/ros2/Dockerfile.standalone .
+      - name: Smoke (three nodes start, /skill/set_expression and /diagnostics are up)
+        run: docker run --rm emori/ros-standalone:amd64
+      - name: Refuse an image that learned to install the core
+        run: |
+          ! docker run --rm emori/ros-standalone:amd64 \
+              python3 -c "import emori_adapter" 2>/dev/null
+
+  # The whole graph, in the image the robot actually runs. `mock` needs no relay and no
+  # FIWARE, so this is the one CI job that can answer "does the launch file still bring
+  # the graph up" without any of the infrastructure around it.
+  ros2-graph:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+      - name: Build the full image for amd64
+        run: |
+          docker buildx build --platform linux/amd64 --load \
+            -t emori/ros2-humble:amd64 -f deploy/ros2/Dockerfile .
+      - name: Start the graph on the mock source
+        run: |
+          docker run -d --name emori-ros2 \
+            -e EMORI_SOURCE=mock \
+            -e EMORI_WITH_FIWARE=false \
+            -e FIWARE_BRIDGE_ENABLED=0 \
+            -e EMORI_ROS_MOTION_OWNER=hostapp \
+            -e EMORI_SKILL_TRANSPORT=log \
+            -e EMORI_BEHAVIOR_CONFIG=/emori/configs/behavior.yaml \
+            emori/ros2-humble:amd64
+          sleep 25
+      - name: The graph is populated and wired
+        run: |
+          set -euo pipefail
+          nodes=$(docker exec emori-ros2 /entrypoint.sh ros2 node list)
+          topics=$(docker exec emori-ros2 /entrypoint.sh ros2 topic list)
+          echo "$nodes"; echo "$topics"
+          # Four, not five: `fiware_bridge` is the fifth node of the graph and
+          # EMORI_WITH_FIWARE=false is exactly the instruction not to start it (the
+          # hostapp is the FIWARE writer on a live robot; two writers double every KPI).
+          for node in /emori_adapter /hri_context_analyzer /hri_engagement_behaviors \
+                      /skill_facade; do
+            grep -qx -- "$node" <<<"$nodes" || { echo "missing node $node"; exit 1; }
+          done
+          for topic in /skill/set_expression \
+                       /humans/persons/learner_01/engagement_status /diagnostics; do
+            grep -qx -- "$topic" <<<"$topics" || { echo "missing topic $topic"; exit 1; }
+          done
+      - name: The behaviour node found its tuning file
+        run: |
+          docker logs emori-ros2 2>&1 | grep -q "behaviour policy source=yaml:" \
+            || { docker logs emori-ros2; echo "the node fell back to code defaults"; exit 1; }
+      - name: Container log (always)
+        if: always()
+        run: docker logs emori-ros2 || true
+      - name: Stop
+        if: always()
+        run: docker rm -f emori-ros2 || true
+
+  # The hub image, built the way a robot builds it, and run beside a motor node on the
+  # mockup backend: the whole path from the checkout to a hub that reaches the robot over
+  # ROS 2 services. Every step is a subcommand of scripts/ci/hub-ci.sh, so a failure names
+  # the layer that broke.
+  #
+  # The base is built from this checkout by deploy/ros2/Dockerfile.v2.robot, on amd64. A
+  # robot's own base is a filesystem not built from this checkout, so this job cannot prove the
+  # layering a robot ends up with; it proves that the motor layer, the hub's base and the
+  # hub image build from their own files, that the layers land where Python imports from,
+  # and that what they make starts, answers and stops.
+  #
+  # Plain `docker build`, not buildx with its container driver: each image is the FROM of
+  # the next, and that driver cannot see an image that is only local.
+  ros2-hub:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install
+        run: pip install -e ".[dev,hostapp,pokamind]"
+      # Recordings kept under tests/fixtures/golden/ are recorded again from this checkout
+      # and compared; the job fails if none are kept.
+      - name: Golden recordings
+        run: python scripts/golden_ci.py check --require-recordings
+      - name: Build the base image (the motor image before its Python layer)
+        run: |
+          docker build -t emori/ros2-jazzy-v2:robot-base -f deploy/ros2/Dockerfile.v2.robot .
+      - name: Motor layer
+        run: bash scripts/ci/hub-ci.sh motor-layer
+      - name: Hub payload (package closure, wheels, the hub's files and Python)
+        run: bash scripts/ci/hub-ci.sh payload
+      - name: Hub base image
+        run: bash scripts/ci/hub-ci.sh hub-base
+      - name: Hub image
+        run: bash scripts/ci/hub-ci.sh hub
+      - name: Start the motor node and the hub
+        run: bash scripts/ci/hub-ci.sh up
+      - name: Smoke (the link is up, the motor's services answer)
+        run: bash scripts/ci/hub-ci.sh smoke
+      - name: tests_ros against a real rclpy, in the hub image
+        run: bash scripts/ci/hub-ci.sh tests
+      - name: SIGTERM stops the hub with 0 inside its budget
+        run: bash scripts/ci/hub-ci.sh stop
+      - name: Container logs (always)
+        if: always()
+        run: bash scripts/ci/hub-ci.sh logs
+      - name: Stop
+        if: always()
+        run: bash scripts/ci/hub-ci.sh down

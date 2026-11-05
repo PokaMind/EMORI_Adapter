@@ -1,0 +1,93 @@
+# /etc/sudoers.d/emori-admin — narrow NOPASSWD grant for the emori-admin
+# service (systemd unit emori-admin.service, User=pollen).
+#
+# Exactly what the admin surface needs and nothing else: restart/start/stop of
+# the 5 emori/daemon units it manages (the hub's three in the --no-block form the
+# admin runs, because its restart outlasts the admin's 30 s wait), a self-restart, reboot/poweroff, the
+# two nmcli calls the AP-rebrand feature uses against the existing
+# NetworkManager "Hotspot" profile (see .env.example EMORI_AP_SSID/PASSWORD),
+# and the nmcli calls of the v2 Wi-Fi backend below. On a v1 robot every
+# other Wi-Fi/volume mutation goes through
+# the reachy-mini daemon's own HTTP API (:8000 /wifi/*, /api/volume/*). On v2
+# there is no daemon and emori-admin makes the daemon's own nmcli calls itself
+# (src/emori_adapter/admin/netman.py): those, and only those, are listed in
+# EMORI_ADMIN_WIFI / EMORI_ADMIN_WIFI_SECRET. Volume needs no sudo (amixer runs
+# as pollen, group audio). This file grants NO wpctl reach and NO journalctl
+# access at all (that comes from the unit's own
+# SupplementaryGroups=systemd-journal instead, see emori-admin.service).
+#
+# CAVEAT:
+# Stock Reachy Mini OS grants pollen passwordless sudo, so this file is forward-hardening.
+# On a robot imaged that way it changes nothing in practice — it documents
+# exactly what emori-admin needs, ready to take over the moment blanket sudo
+# is ever locked down. Do not treat its mere presence as proof of a narrowed
+# sudoers policy; check `sudo -l -U pollen` on the actual robot. The admin's way back to the
+# host app runs deploy/robot/hub-stack.sh, whose own sudo calls are not listed here: on a
+# locked-down robot that button reports the failure until they are.
+#
+# Installed by deploy/robot/install.sh, and ONLY after it passes
+# `visudo -c -f deploy/robot/sudoers-emori-admin` — a syntax error in a file
+# under /etc/sudoers.d/ can break sudo for the WHOLE robot, so this file must
+# never be copied in unvalidated. Mode 0440, root:root, exactly like every
+# other sudoers.d fragment.
+
+Cmnd_Alias EMORI_ADMIN_SYSTEMCTL = \
+    /usr/bin/systemctl restart emori-hostapp.service, \
+    /usr/bin/systemctl start emori-hostapp.service, \
+    /usr/bin/systemctl stop emori-hostapp.service, \
+    /usr/bin/systemctl --no-block restart emori-hub.service, \
+    /usr/bin/systemctl --no-block start emori-hub.service, \
+    /usr/bin/systemctl --no-block stop emori-hub.service, \
+    /usr/bin/systemctl restart emori-kiosk.service, \
+    /usr/bin/systemctl start emori-kiosk.service, \
+    /usr/bin/systemctl stop emori-kiosk.service, \
+    /usr/bin/systemctl restart emori-camera-bridge.service, \
+    /usr/bin/systemctl start emori-camera-bridge.service, \
+    /usr/bin/systemctl stop emori-camera-bridge.service, \
+    /usr/bin/systemctl restart reachy-mini-daemon.service, \
+    /usr/bin/systemctl start reachy-mini-daemon.service, \
+    /usr/bin/systemctl stop reachy-mini-daemon.service, \
+    /usr/bin/systemctl restart emori-admin.service
+
+Cmnd_Alias EMORI_ADMIN_POWER = \
+    /usr/bin/systemctl reboot, \
+    /usr/bin/systemctl poweroff
+
+# The AP rebrand only ever modifies the existing "Hotspot" NetworkManager
+# profile (never creates or deletes a connection) and only ever reads its own
+# psk back to confirm what it just wrote.
+Cmnd_Alias EMORI_ADMIN_HOTSPOT = \
+    /usr/bin/nmcli connection modify Hotspot *, \
+    /usr/bin/nmcli -s -g 802-11-wireless-security.psk connection show Hotspot
+
+# The v2 Wi-Fi backend (no reachy-mini daemon): the daemon's own nmcli calls,
+# run by emori-admin as `sudo -n nmcli ...` -- rescan, the scan list (which
+# waits on that rescan; both are polkit-gated for a service with no login
+# session), and bringing up / deleting a saved profile BY NAME. Reads (the
+# connection list) need no sudo and are not here. The commas inside the -f
+# field list are escaped: a bare comma separates commands in sudoers.
+# tests/test_admin_netman.py holds this list and the code's argv together.
+Cmnd_Alias EMORI_ADMIN_WIFI = \
+    /usr/bin/nmcli device wifi rescan, \
+    /usr/bin/nmcli -t -f IN-USE\,SSID\,BSSID\,MODE\,CHAN\,FREQ\,RATE\,SIGNAL\,SECURITY device wifi list, \
+    /usr/bin/nmcli connection up id *, \
+    /usr/bin/nmcli connection delete id *
+
+# The calls that carry a Wi-Fi passphrase in argv: joining a network
+# (`device wifi connect <ssid> password <psk>`, exactly as the daemon's nmcli
+# package does it) and creating the Hotspot profile when none exists -- plus
+# the AP rebrand's modify (also in EMORI_ADMIN_HOTSPOT), listed here so that
+# its psk is covered by the Defaults line below as well.
+Cmnd_Alias EMORI_ADMIN_WIFI_SECRET = \
+    /usr/bin/nmcli device wifi connect *, \
+    /usr/bin/nmcli device wifi hotspot con-name Hotspot ssid * password *, \
+    /usr/bin/nmcli connection modify Hotspot *
+
+# sudo logs every command it allows, argv included, to the journal: for these
+# that would be the site's Wi-Fi password in a log. Their ALLOWED runs are not
+# logged; a refusal still is (log_denied stays on). It applies whichever rule
+# grants the command, the robot's blanket NOPASSWD included. (log_allowed exists
+# since sudo 1.8.29; Debian ships 1.9.x.)
+Defaults!EMORI_ADMIN_WIFI_SECRET !log_allowed
+
+pollen ALL=(root) NOPASSWD: EMORI_ADMIN_SYSTEMCTL, EMORI_ADMIN_POWER, EMORI_ADMIN_HOTSPOT, EMORI_ADMIN_WIFI, EMORI_ADMIN_WIFI_SECRET

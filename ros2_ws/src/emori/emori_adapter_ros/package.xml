@@ -1,0 +1,26 @@
+<?xml version="1.0"?>
+<?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
+<package format="3">
+  <name>emori_adapter_ros</name>
+  <version>0.1.0</version>
+  <description>EMORI -> ROS4HRI adapter node: publishes REP-155 engagement and context
+  topics from a session source (mock, or the live robot hub relay, which also carries
+  replayed sessions). Runs the emori_adapter core (Translator) and publishes
+  /humans/persons/tracked, /humans/persons/&lt;id&gt;/engagement_status, and the
+  structured emori_msgs/Context.</description>
+  <maintainer email="dev@pokamind.com">Pokamind AB</maintainer>
+  <license>Apache-2.0</license>
+
+  <exec_depend>rclpy</exec_depend>
+  <exec_depend>std_msgs</exec_depend>
+  <exec_depend>hri_msgs</exec_depend>
+  <exec_depend>emori_msgs</exec_depend>
+
+  <test_depend>ament_copyright</test_depend>
+  <test_depend>ament_flake8</test_depend>
+  <test_depend>ament_pep257</test_depend>
+
+  <export>
+    <build_type>ament_python</build_type>
+  </export>
+</package>

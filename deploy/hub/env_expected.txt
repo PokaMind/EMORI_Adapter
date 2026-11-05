@@ -1,0 +1,35 @@
+# What the hub's environment may have that the host application's does not, for
+# env_gates.py. One NAME=value per line: the value must match exactly. NAME=* accepts any
+# value, for the few names the container or the shell sets afresh on each start.
+#
+# Names the hub ignores anyway (emori_hub.main.ENV_DENYLIST: PATH, HOME, ROS_*, and so on)
+# are not listed. A listed name may be absent. This file changes only by a reviewed commit.
+
+# Set by the compose file.
+EMORI_HUB_ENV_JSON=/run/emori-hub/env.json
+EMORI_WITH_FIWARE=false
+FIWARE_BRIDGE_ENABLED=0
+
+# Set by env-snapshot.py when a voice delay is configured: the host's delay sink.
+EMORI_VOICE_LINK_SINK=emori_voice
+
+# Set by emori_hub.main. The first three are read from deploy/ros2/.env, where a site may set
+# them. The last only with EMORI_HUB_GRAPH=1.
+EMORI_ROS_DEIDENTIFY=*
+EMORI_ROS_SPEECH_TEXT=*
+EMORI_ROS_ID_SALT=*
+EMORI_SKILL_TRANSPORT=ros_native
+
+# Set by the image.
+DEBIAN_FRONTEND=noninteractive
+HF_HOME=/opt/hf
+HF_HUB_OFFLINE=1
+
+# Set by the container runtime and the entrypoint's shell.
+HOSTNAME=*
+PWD=/opt/emori
+SHLVL=*
+_=*
+
+# Set by the ROS setup scripts; the value follows the workspace layout.
+CMAKE_PREFIX_PATH=*

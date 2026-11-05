@@ -1,0 +1,7 @@
+# /emori/session/command. `end` goes through the same path as the watchdog's request to end,
+# so the session's row names it as the reason.
+string verb                 # begin|end|reprompt|reload|abort_unstarted
+string reason
+---
+bool accepted
+string error_code

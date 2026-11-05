@@ -1,0 +1,69 @@
+# The hub beside the simulated robot node, on a development computer. An overlay for
+# deploy/ros2/docker-compose.v2.yml, which starts the node; pass both:
+#
+#   docker compose -f deploy/ros2/docker-compose.v2.yml \
+#                  -f deploy/hub/docker-compose.hub.sim.yml up
+#
+# or run scripts/sim_full_up.ps1 -Hub, which does that and leaves the kiosk at
+# http://localhost:8095/.
+#
+# The hub joins the node's network namespace, as it shares the robot's host network, so it
+# reaches the node's graph the same way: plain UDP on the loopback address through
+# fastdds_peers.xml, with a private IPC namespace and no shared memory. The node's own
+# DDS participant reads the same profile, so both sides of the pair use one transport. The
+# hub's port is published on the node's service, because a container that shares another's
+# network cannot publish ports of its own.
+#
+# The image is the one the robot runs (emori/hub:robot), built the way the robot builds it:
+# deploy/hub/Dockerfile.hub-base and Dockerfile.hub over the node's image. The adapter
+# core is this checkout, bind-mounted at /opt/emori.
+services:
+  ros2v2:
+    ports:
+      - "127.0.0.1:${HOSTAPP_PORT:-8095}:${HOSTAPP_PORT:-8095}"
+    environment:
+      - FASTRTPS_DEFAULT_PROFILES_FILE=/etc/emori/fastdds_peers.xml
+    volumes:
+      - ./fastdds_peers.xml:/etc/emori/fastdds_peers.xml:ro
+
+  hub:
+    image: ${EMORI_HUB_IMAGE:-emori/hub:robot}
+    pull_policy: never
+    container_name: emori-hub-sim
+    network_mode: "service:ros2v2"
+    ipc: private
+    init: true
+    restart: "no"
+    working_dir: /opt/emori
+    stop_signal: SIGTERM
+    stop_grace_period: 12s
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
+    tmpfs: ["/tmp:size=128m"]
+    ulimits:
+      core: {soft: 0, hard: 0}
+    depends_on:
+      - ros2v2
+    environment:
+      - HOME=/tmp
+      - ROS_LOG_DIR=/tmp/roslog
+      - RMW_IMPLEMENTATION=rmw_fastrtps_cpp
+      - ROS_DOMAIN_ID=${ROS_DOMAIN_ID:-0}
+      - ROS_LOCALHOST_ONLY=0
+      - FASTRTPS_DEFAULT_PROFILES_FILE=/etc/emori/fastdds_peers.xml
+      - EMORI_ROBOT_TRANSPORT=ros
+      # 1 hosts the graph's four nodes in the hub. Pair it with
+      # EMORI_MOTOR_LAUNCH=robot.launch.py on the node's service, or each runs twice.
+      - EMORI_HUB_GRAPH=${EMORI_HUB_GRAPH:-0}
+      - EMORI_ROS_DEIDENTIFY=${EMORI_ROS_DEIDENTIFY:-1}
+      - EMORI_ROS_SPEECH_TEXT=${EMORI_ROS_SPEECH_TEXT:-0}
+      - EMORI_ROS_ID_SALT=${EMORI_ROS_ID_SALT:-}
+      - HOSTAPP_HOST=0.0.0.0
+      - HOSTAPP_PORT=${HOSTAPP_PORT:-8095}
+      # The simulated head drifts under gravity compensation and reads as taps.
+      - EMORI_GESTURE=0
+      - EMORI_WITH_FIWARE=false
+      - FIWARE_BRIDGE_ENABLED=0
+    volumes:
+      - ../..:/opt/emori
+      - ./fastdds_peers.xml:/etc/emori/fastdds_peers.xml:ro

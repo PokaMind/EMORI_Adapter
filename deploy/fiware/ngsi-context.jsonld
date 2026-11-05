@@ -1,0 +1,17 @@
+{
+  "@context": {
+    "Session": "https://pokamind.com/emori/Session",
+    "Person": "https://uri.fiware.org/ns/data-models#Person",
+    "learner": "https://pokamind.com/emori/learner",
+    "engagementLevel": "https://pokamind.com/emori/engagementLevel",
+    "engagementScore": "https://pokamind.com/emori/engagementScore",
+    "escalation": "https://pokamind.com/emori/escalation",
+    "rapport": "https://pokamind.com/emori/rapport",
+    "attention": "https://pokamind.com/emori/attention",
+    "engagementTrend": "https://pokamind.com/emori/engagementTrend",
+    "dominantStyle": "https://pokamind.com/emori/dominantStyle",
+    "valence": "https://pokamind.com/emori/valence",
+    "arousal": "https://pokamind.com/emori/arousal",
+    "@vocab": "https://uri.etsi.org/ngsi-ld/default-context/"
+  }
+}

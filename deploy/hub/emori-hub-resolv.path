@@ -1,0 +1,15 @@
+# systemd path unit: keep the hub's copy of /etc/resolv.conf current.
+# Install with emori-hub-resolv.service: sudo systemctl enable --now emori-hub-resolv.path
+#
+# A container gets /etc/resolv.conf as it was when it started, and the host rewrites the file
+# when the network changes. emori-hub.service bind-mounts a copy it keeps in
+# /run/emori-hub, and this unit refreshes that copy.
+[Unit]
+Description=Refresh the EMORI hub's copy of resolv.conf when the host's changes
+
+[Path]
+PathChanged=/etc/resolv.conf
+Unit=emori-hub-resolv.service
+
+[Install]
+WantedBy=multi-user.target

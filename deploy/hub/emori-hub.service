@@ -1,0 +1,77 @@
+# systemd unit: the EMORI hub, the host application as a ROS 2 container (kiosk gateway,
+# session core, robot client). It replaces emori-hostapp.service on a robot whose
+# /opt/emori/HUB_IS_ROS flag file is present; with the flag absent this unit is skipped.
+#
+# Install: sudo cp emori-hub.service emori-hub-resolv.path emori-hub-resolv.service \
+#              /etc/systemd/system/
+#          sudo systemctl enable emori-hub emori-hub-resolv.path
+#
+# There is deliberately no Conflicts= between this unit and emori-hostapp.service. Both may
+# be enabled; each carries its own condition on the flag file, and a unit whose condition
+# fails is a skipped start, not a stop of the other. The port is the last line of defence:
+# whichever binds :8090 second exits.
+[Unit]
+Description=EMORI hub (ROS 2 container: kiosk gateway, session core, robot client)
+# emori-voice-delay.service is ordering only. When the voice delay is off it does not exist
+# or has nothing to do, and this unit starts regardless.
+# Docker is not in After=: a start job waits for its order before its condition is read, so with
+# the flag down this unit, and the kiosk ordered after it, would wait for a Docker neither needs.
+# The first ExecStartPre waits for it instead.
+After=network-online.target user@1000.service emori-voice-delay.service
+Wants=network-online.target docker.service
+ConditionPathExists=/opt/emori/HUB_IS_ROS
+StartLimitIntervalSec=0
+
+[Service]
+User=pollen
+# audio for the PipeWire socket, docker for the compose client.
+SupplementaryGroups=audio docker
+Environment=XDG_RUNTIME_DIR=/run/user/1000
+# Runtime-created diagnostic material must not be group/world readable. The container's
+# entrypoint sets the same mask for what the hub writes.
+UMask=0077
+WorkingDirectory=/opt/emori
+# Holds what the container reads from the host: the environment snapshot and resolv.conf.
+# Removed at stop.
+RuntimeDirectory=emori-hub
+RuntimeDirectoryMode=0700
+# Parsed here, as the host application's unit parses them, then written down for the
+# container by env-snapshot.py. A later file wins.
+EnvironmentFile=-/opt/emori/.env
+EnvironmentFile=-/opt/emori/configs/site/settings.env
+EnvironmentFile=-/opt/emori/secrets/site.env
+EnvironmentFile=-/opt/emori/secrets/admin.env
+ExecStartPre=/bin/sh -c 'until timeout -k 2 10 docker info >/dev/null 2>&1; do sleep 1; done'
+# The container mounts this directory, and nothing else makes it before the mount needs it:
+# a robot deployed without an add-on has none. Compose refuses a missing bind source.
+ExecStartPre=/bin/mkdir -p -m 0700 /home/pollen/.cache/emori
+ExecStartPre=/opt/emori/deploy/hub/wait-pipewire.sh
+# An optional add-on can hold the start until something it opens once at startup exists.
+# The runner always exits 0, and the '-' keeps a failure of the runner itself from blocking
+# the start.
+ExecStartPre=-/bin/sh /opt/emori/deploy/robot/addon-prestart.sh
+ExecStartPre=/usr/bin/python3 /opt/emori/deploy/hub/env-snapshot.py /run/emori-hub/env.json
+ExecStartPre=/bin/sh -c 'cat /etc/resolv.conf > /run/emori-hub/resolv.conf'
+# The zone's name, for the container's /etc/timezone. Not every host has that file, and
+# /etc/localtime names the zone where it is a link. Otherwise the copy is empty, not wrong.
+ExecStartPre=/bin/sh -c 'cat /etc/timezone > /run/emori-hub/timezone 2>/dev/null || readlink -f /etc/localtime | sed -n "s|.*/zoneinfo/||p" > /run/emori-hub/timezone'
+# A container left over from a start that was not stopped cleanly.
+ExecStartPre=-/usr/bin/docker compose -p emori-hub -f /opt/emori/deploy/hub/docker-compose.hub.robot.yml down -t 0
+ExecStart=/opt/emori/deploy/hub/compose-up.sh
+# The kiosk starts after this unit, so "started" has to mean the port answers.
+ExecStartPost=/opt/emori/deploy/hub/wait-healthz.sh
+# Stopping is the client's job: on the unit's SIGTERM it stops the container within the
+# compose file's stop_grace_period and exits 130. A second stopper here would race it, and the
+# client can panic on that race and leave the unit failed.
+SuccessExitStatus=130
+# The signal goes to the main process alone. Compose's plugin takes a second one, from its parent
+# and from systemd, as "kill the container now", and the log filter must outlive the client: with
+# its output gone the client exits at once and leaves the container running on the port.
+KillMode=mixed
+Restart=on-failure
+RestartSec=3
+TimeoutStartSec=180
+TimeoutStopSec=15
+
+[Install]
+WantedBy=multi-user.target
