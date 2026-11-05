@@ -1,4 +1,4 @@
-{"pid": 13216, "s": "meta", "schema": 1, "t": "<time>", "wall": "<time>"}
+{"pid": 36680, "s": "meta", "schema": 1, "t": "<time>", "wall": "<time>"}
 {"d": 0.4, "i": 1, "kind": "goto", "ms": 0, "plan": 0, "reason": "farewell (session end) (settle)", "s": "apply", "t": "<time>"}
 {"i": 2, "moved": true, "n": 2, "outcome": "finished", "plan": 0, "revoked": false, "s": "batch_end", "skip_reason": "", "sustain": 0, "t": "<time>", "voice_seen": false}
 {"n": 2, "plan": 0, "s": "pickup", "speech": false, "t": "<time>", "voice": false}
@@ -7,5 +7,8 @@
 {"i": 2, "moved": true, "n": 2, "outcome": "finished", "plan": 0, "revoked": false, "s": "batch_end", "skip_reason": "", "sustain": 0, "t": "<time>", "voice_seen": false}
 {"n": 1, "plan": 0, "s": "pickup", "speech": false, "t": "<time>", "voice": false}
 {"d": 0.6, "i": 0, "kind": "goto", "ms": 0, "plan": 0, "reason": "look up at the person (session start)", "s": "apply", "t": "<time>"}
+{"i": 1, "moved": true, "n": 1, "outcome": "finished", "plan": 0, "revoked": false, "s": "batch_end", "skip_reason": "", "sustain": 0, "t": "<time>", "voice_seen": false}
 {"action": "submitted", "s": "engagement", "t": "<time>"}
+{"n": 2, "plan": 0, "s": "pickup", "speech": false, "t": "<time>", "voice": false}
+{"d": 0.4, "i": 0, "kind": "antennas", "ms": 0, "plan": 0, "reason": "perk up (engaging)", "s": "apply", "t": "<time>"}
 {"action": "submitted", "s": "engagement", "t": "<time>"}

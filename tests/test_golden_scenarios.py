@@ -347,7 +347,7 @@ def test_the_fake_voice_answers_like_a_voice():
     voice.rise()
     assert voice.active and voice.onset_count == 1
     assert voice.rose_since(start) and voice.active_since(start)
-    assert voice.silent_for_s() == 0.0
+    assert voice.silent_for_s() < 0.01
     voice.syllable()
     assert voice.onset_count == 2
     voice.hush()

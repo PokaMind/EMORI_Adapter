@@ -1412,8 +1412,9 @@ def test_a_port_already_taken_exits_with_uvicorns_code_after_the_teardown(tmp_pa
     """The port is the last line of defence between two hub units: the second binder exits."""
 
     code, lines, stderr = _run_child("port-taken", tmp_path)
-    assert code == 1, stderr
-    assert lines[-len(_ROS_TEARDOWN) - 2:] == [*_ROS_TEARDOWN, "returned 1", "threads []"]
+    # 1 before uvicorn 0.50 or so, 3 after: the unit restarts on either, as any failure.
+    assert code in (1, 3), stderr
+    assert lines[-len(_ROS_TEARDOWN) - 2:] == [*_ROS_TEARDOWN, f"returned {code}", "threads []"]
 
 
 def test_a_thread_that_will_not_finish_cannot_hold_the_process_open(tmp_path):

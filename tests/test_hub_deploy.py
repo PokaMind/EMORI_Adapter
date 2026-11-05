@@ -426,8 +426,11 @@ def test_the_scripts_are_executable_in_the_index_and_use_unix_line_endings():
                                   "hub-entry.sh", "pw-record.sh",
                                   "hub-refresh.sh", "wait-healthz.sh", "wait-pipewire.sh"])
 def test_the_scripts_parse(name):
-    result = subprocess.run([_SHELL, "-n", str(_HUB_DIR / name)], capture_output=True,
-                            text=True, check=False)
+    path = _HUB_DIR / name
+    # By the shell the script names: on Debian `sh` is dash, which rejects bash's syntax.
+    first_line = path.read_text(encoding="utf-8").splitlines()[0]
+    shell = (shutil.which("bash") or _SHELL) if "bash" in first_line else _SHELL
+    result = subprocess.run([shell, "-n", str(path)], capture_output=True, text=True, check=False)
     assert result.returncode == 0, result.stderr
 
 

@@ -1574,7 +1574,9 @@ def test_the_load_worker_is_bounded_and_runs_where_chromium_runs():
 
 def test_the_camera_is_not_touched(real, monkeypatch):
     outcome = _scripted(real, monkeypatch)
-    assert not [c for c in outcome.machine.commands if any("camera" in str(part) for part in c)]
+    # Only the unit: a temporary folder named after this test holds the word as well.
+    assert not [c for c in outcome.machine.commands
+                if any("emori-camera" in str(part) for part in c)]
 
 
 # --------------------------------------------------------------------------------------

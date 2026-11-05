@@ -1,4 +1,4 @@
-{"pid": 29980, "s": "meta", "schema": 1, "t": "<time>", "wall": "<time>"}
+{"pid": 36200, "s": "meta", "schema": 1, "t": "<time>", "wall": "<time>"}
 {"n": 2, "plan": 0, "s": "pickup", "speech": false, "t": "<time>", "voice": false}
 {"accepted": true, "d": 3.5, "i": 0, "kind": "play_recorded", "move": "welcoming1", "ms": 0, "plan": 0, "reason": "greeting (session start) (recorded welcoming1)", "s": "apply", "t": "<time>"}
 {"d": 0.4, "i": 1, "kind": "goto", "ms": 0, "plan": 0, "reason": "greeting (session start) (settle)", "s": "apply", "t": "<time>"}

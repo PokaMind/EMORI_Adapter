@@ -1,13 +1,12 @@
-{"pid": 26884, "s": "meta", "schema": 1, "t": "<time>", "wall": "<time>"}
+{"pid": 33600, "s": "meta", "schema": 1, "t": "<time>", "wall": "<time>"}
 {"d": 0.55, "i": 1, "kind": "goto", "ms": 0, "plan": 0, "reason": "lean in", "s": "apply", "t": "<time>"}
 {"i": 1, "moved": true, "n": 2, "outcome": "finished", "plan": 0, "revoked": false, "s": "batch_end", "skip_reason": "", "sustain": 0, "t": "<time>", "voice_seen": false}
 {"n": 2, "plan": 0, "s": "pickup", "speech": false, "t": "<time>", "voice": false}
 {"i": 0, "moved": false, "n": 2, "outcome": "preempted", "plan": 0, "revoked": false, "s": "batch_end", "skip_reason": "", "sustain": 0, "t": "<time>", "voice_seen": false}
 {"n": 2, "plan": 0, "s": "pickup", "speech": false, "t": "<time>", "voice": false}
 {"accepted": true, "d": 2.5, "i": 0, "kind": "play_recorded", "move": "grateful1", "ms": 0, "plan": 0, "reason": "farewell (session end) (recorded grateful1)", "s": "apply", "t": "<time>"}
-{"i": 1, "moved": true, "n": 1, "outcome": "finished", "plan": 0, "revoked": false, "s": "batch_end", "skip_reason": "", "sustain": 0, "t": "<time>", "voice_seen": false}
-{"n": 2, "plan": 0, "s": "pickup", "speech": false, "t": "<time>", "voice": false}
-{"i": 0, "moved": false, "n": 2, "outcome": "preempted", "plan": 0, "revoked": false, "s": "batch_end", "skip_reason": "", "sustain": 0, "t": "<time>", "voice_seen": false}
+{"d": 0.55, "i": 1, "kind": "goto", "ms": 0, "plan": 0, "reason": "lean in", "s": "apply", "t": "<time>"}
+{"i": 1, "moved": true, "n": 2, "outcome": "finished", "plan": 0, "revoked": false, "s": "batch_end", "skip_reason": "", "sustain": 0, "t": "<time>", "voice_seen": false}
 {"n": 2, "plan": 0, "s": "pickup", "speech": false, "t": "<time>", "voice": false}
 {"i": 0, "moved": false, "n": 2, "outcome": "preempted", "plan": 0, "revoked": false, "s": "batch_end", "skip_reason": "", "sustain": 0, "t": "<time>", "voice_seen": false}
 {"n": 2, "plan": 0, "s": "pickup", "speech": false, "t": "<time>", "voice": false}

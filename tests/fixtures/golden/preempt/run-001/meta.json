@@ -1,7 +1,7 @@
 {
  "schema": 1,
  "scenario": "preempt",
- "label": "one",
+ "label": "win",
  "mode": "sim",
  "kind": "scripted",
  "fast": true,
@@ -9,7 +9,7 @@
  "untimed": [],
  "self_check": [],
  "lang": "en",
- "wall0": 1793691804.118386,
- "commit": "ccbd3c8",
- "t0": 86327.609
+ "wall0": 1793890207.139146,
+ "commit": "844bb8b",
+ "t0": 8750.343
 }

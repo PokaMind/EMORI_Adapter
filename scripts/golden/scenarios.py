@@ -36,6 +36,9 @@ TIMER_DRIVEN = frozenset({"pending", "flags", "mic"})
 
 # Longer than the greeting a new session opens with, so a first sentence does not start under it.
 GREETING_S = 7.5
+# A session opened over a live one greets after the first one's farewell has played. How long
+# that takes differs by a second between machines, so this leaves room for the slowest.
+FAREWELL_S = 4.0
 
 _RESULTS = {
     "styles": {"mirroring": 14.2, "acknowledging": 11.8, "steady": 9.3},
@@ -101,7 +104,7 @@ def _open_anonymous(context: Context, *, page: str = "session") -> str:
     return minted.get("session_id") or minted.get("sid") or url
 
 
-def _exchange(context: Context, cycles: int = 2) -> None:
+def _exchange(context: Context, cycles: int = 2, *, greeting_s: float = GREETING_S) -> None:
     """The frame comes alive and the conversation starts, once the greeting has finished.
 
     What a cycle moves depends on whether the greeting is still running and how far the
@@ -109,7 +112,7 @@ def _exchange(context: Context, cycles: int = 2) -> None:
     """
 
     context.post("/api/frame-alive")
-    context.hold(GREETING_S)
+    context.hold(greeting_s)
     for seq in range(cycles):
         context.cycle(_calm_cycle(seq))
 
@@ -182,7 +185,7 @@ def preempt(context: Context) -> None:
     _exchange(context)
     context.stop_poll()
     _open_anonymous(context, page="session_second")
-    _exchange(context)
+    _exchange(context, greeting_s=GREETING_S + FAREWELL_S)
     context.cycle(_completion())
     _landing(context)
 
