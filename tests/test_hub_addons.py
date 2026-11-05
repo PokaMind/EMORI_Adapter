@@ -16,6 +16,9 @@ import sys
 
 import pytest
 
+# addon_dist.py reads a pyproject with tomllib. It runs on the robot, on a newer Python.
+pytestmark = pytest.mark.skipif(sys.version_info < (3, 11), reason="needs tomllib")
+
 _ROOT = Path(__file__).resolve().parents[1]
 _SCRIPT = _ROOT / "deploy" / "hub" / "hub-addons.sh"
 _DIST = _ROOT / "deploy" / "hub" / "addon_dist.py"

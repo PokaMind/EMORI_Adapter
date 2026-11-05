@@ -78,8 +78,13 @@ jobs:
       - name: The graph is populated and wired
         run: |
           set -euo pipefail
-          nodes=$(docker exec emori-ros2 /entrypoint.sh ros2 node list)
-          topics=$(docker exec emori-ros2 /entrypoint.sh ros2 topic list)
+          # A node can be listed before discovery has brought in its topics.
+          for _ in $(seq 1 30); do
+            nodes=$(docker exec emori-ros2 /entrypoint.sh ros2 node list)
+            topics=$(docker exec emori-ros2 /entrypoint.sh ros2 topic list)
+            grep -qx -- /diagnostics <<<"$topics" && break
+            sleep 2
+          done
           echo "$nodes"; echo "$topics"
           # Four, not five: `fiware_bridge` is the fifth node of the graph and
           # EMORI_WITH_FIWARE=false is exactly the instruction not to start it (the
