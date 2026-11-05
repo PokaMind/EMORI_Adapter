@@ -128,6 +128,14 @@ def test_a_failed_recording_or_a_difference_fails_the_check(tmp_path, record, co
                            known=lambda: {"full_session"}, trace=trace) == 1
 
 
+def test_the_last_line_names_what_differed(tmp_path, capsys):
+    _golden(tmp_path / "g", "full_session")
+    _golden(tmp_path / "g", "preempt")
+    golden_ci.check(tmp_path / "g", tmp_path / "out", "ci",
+                    known=lambda: {"full_session", "preempt"}, trace=_Trace(compare=1))
+    assert capsys.readouterr().out.splitlines()[-1] == "golden: differs: full_session, preempt"
+
+
 def test_a_failure_in_one_scenario_does_not_hide_the_next(tmp_path):
     _golden(tmp_path / "g", "full_session")
     _golden(tmp_path / "g", "preempt")

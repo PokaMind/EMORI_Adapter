@@ -109,7 +109,7 @@ def check(goldens: Path, root: Path, label: str, *,
     if unknown:
         print(f"golden: the harness has no scenario named {', '.join(unknown)}")
         return 1
-    failed = False
+    failed: list[str] = []
     for golden in found:
         print(f"golden: {golden.scenario}: {golden.runs} run(s), "
               f"{'compressed' if golden.fast else 'real time'}, lang {golden.lang}")
@@ -119,11 +119,15 @@ def check(goldens: Path, root: Path, label: str, *,
             record.append("--fast")
         if trace(root, *record) != 0:
             print(f"golden: {golden.scenario}: the recording failed")
-            failed = True
+            failed.append(golden.scenario)
             continue
         compared = trace(root, "compare", "--a", str(goldens), "--b", label,
                          "--scenario", golden.scenario, "--exact-only")
-        failed = failed or compared != 0
+        if compared != 0:
+            failed.append(golden.scenario)
+    # Last, for a log that keeps only its end.
+    if failed:
+        print(f"golden: differs: {', '.join(failed)}", flush=True)
     return 1 if failed else 0
 
 
